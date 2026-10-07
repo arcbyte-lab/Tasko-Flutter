@@ -5,6 +5,8 @@ import '../task_rules.dart';
 
 /// The monthly due-date heatmap above the tabs (arcbyte decision 0003).
 /// Swipe or use the chevrons to change month; tap a day to filter the list.
+/// Expanded, it fills the screen with big cells that show the day and its
+/// open count (arcbyte lofi T3, hifi H2).
 class PulsePanel extends StatelessWidget {
   const PulsePanel({
     super.key,
@@ -15,6 +17,8 @@ class PulsePanel extends StatelessWidget {
     required this.selectedDay,
     required this.onDayTap,
     required this.onMonthChange,
+    this.expanded = false,
+    this.onToggleExpanded,
   });
 
   final DateTime month;
@@ -24,6 +28,8 @@ class PulsePanel extends StatelessWidget {
   final DateTime? selectedDay;
   final ValueChanged<DateTime> onDayTap;
   final ValueChanged<int> onMonthChange;
+  final bool expanded;
+  final VoidCallback? onToggleExpanded;
 
   static Color cellColor(int count) => switch (count) {
     0 => AppColors.heatmapEmpty,
@@ -43,17 +49,61 @@ class PulsePanel extends StatelessWidget {
 
     Widget cell(int index) {
       final day = index - leading + 1;
-      if (day < 1 || day > days) return const SizedBox(width: 32, height: 36);
+      if (day < 1 || day > days) {
+        return expanded
+            ? const Expanded(child: SizedBox())
+            : const SizedBox(width: 32, height: 36);
+      }
       final date = DateTime(month.year, month.month, day);
-      return _DayCell(
+      final c = _DayCell(
         day: day,
-        color: cellColor(counts[day] ?? 0),
+        count: counts[day] ?? 0,
         isToday: isSameDay(date, today),
         selected: selectedDay != null && isSameDay(date, selectedDay!),
         overdue: overdueDays.contains(day),
+        big: expanded,
         onTap: () => onDayTap(date),
       );
+      return expanded
+          ? Expanded(
+              child: Padding(padding: const EdgeInsets.all(4), child: c),
+            )
+          : c;
     }
+
+    Widget weekday(String d) {
+      final label = Center(
+        child: Text(
+          d,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: AppColors.mutedForeground,
+          ),
+        ),
+      );
+      return expanded
+          ? Expanded(child: SizedBox(height: 28, child: label))
+          : SizedBox(width: 32, height: 20, child: label);
+    }
+
+    final size = expanded ? MainAxisSize.max : MainAxisSize.min;
+    final grid = Column(
+      children: [
+        Row(
+          mainAxisSize: size,
+          children: [
+            for (final d in const ['M', 'T', 'W', 'T', 'F', 'S', 'S'])
+              weekday(d),
+          ],
+        ),
+        for (var r = 0; r < rows; r++)
+          Row(
+            mainAxisSize: size,
+            children: [for (var c = 0; c < 7; c++) cell(r * 7 + c)],
+          ),
+      ],
+    );
 
     return GestureDetector(
       onHorizontalDragEnd: (d) {
@@ -93,40 +143,19 @@ class PulsePanel extends StatelessWidget {
                   label: 'Next month',
                   onTap: () => onMonthChange(1),
                 ),
+                const Spacer(),
+                if (onToggleExpanded != null)
+                  _Chevron(
+                    icon: expanded
+                        ? Icons.close_fullscreen
+                        : Icons.open_in_full,
+                    label: expanded ? 'Collapse calendar' : 'Expand calendar',
+                    onTap: onToggleExpanded!,
+                  ),
               ],
             ),
             const SizedBox(height: 4),
-            Center(
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      for (final d in const ['M', 'T', 'W', 'T', 'F', 'S', 'S'])
-                        SizedBox(
-                          width: 32,
-                          height: 20,
-                          child: Center(
-                            child: Text(
-                              d,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: AppColors.mutedForeground,
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  for (var r = 0; r < rows; r++)
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [for (var c = 0; c < 7; c++) cell(r * 7 + c)],
-                    ),
-                ],
-              ),
-            ),
+            if (expanded) grid else Center(child: grid),
           ],
         ),
       ),
@@ -137,18 +166,22 @@ class PulsePanel extends StatelessWidget {
 class _DayCell extends StatelessWidget {
   const _DayCell({
     required this.day,
-    required this.color,
+    required this.count,
     required this.isToday,
     required this.selected,
     required this.overdue,
+    required this.big,
     required this.onTap,
   });
 
   final int day;
-  final Color color;
+  final int count;
   final bool isToday;
   final bool selected;
   final bool overdue;
+
+  /// The full-screen cell: day number and open count inside it.
+  final bool big;
   final VoidCallback onTap;
 
   @override
@@ -161,6 +194,87 @@ class _DayCell extends StatelessWidget {
             const BoxShadow(color: Colors.white, spreadRadius: 2),
           ]
         : null;
+    final box = BoxDecoration(
+      color: PulsePanel.cellColor(count),
+      borderRadius: BorderRadius.circular(4),
+      border: isToday && !selected
+          ? Border.all(color: AppColors.foreground, width: 1.5)
+          : null,
+      boxShadow: ring,
+    );
+    final dot = Container(
+      width: 4,
+      height: 4,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: overdue ? AppColors.destructive : Colors.transparent,
+      ),
+    );
+
+    // Primary and busiest fills (2 or more) take white text.
+    final dark = count >= 2;
+    final body = big
+        ? AspectRatio(
+            aspectRatio: 1,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Positioned.fill(
+                  child: Container(
+                    decoration: box,
+                    padding: const EdgeInsets.all(5),
+                    // Pinned to corners, not stacked, so a small cell can't
+                    // overflow.
+                    child: Stack(
+                      children: [
+                        Text(
+                          '$day',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: dark ? Colors.white : AppColors.foreground,
+                          ),
+                        ),
+                        if (count > 0)
+                          Positioned(
+                            right: 0,
+                            bottom: 0,
+                            child: Text(
+                              '$count',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: dark
+                                    ? Colors.white
+                                    : AppColors.mutedForeground,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: -6,
+                  left: 0,
+                  right: 0,
+                  child: Center(child: dot),
+                ),
+              ],
+            ),
+          )
+        : SizedBox(
+            width: 32,
+            height: 36,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(width: 24, height: 24, decoration: box),
+                const SizedBox(height: 2),
+                dot,
+              ],
+            ),
+          );
+
     return Semantics(
       button: true,
       selected: selected,
@@ -169,36 +283,7 @@ class _DayCell extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
-        child: SizedBox(
-          width: 32,
-          height: 36,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 24,
-                height: 24,
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(4),
-                  border: isToday && !selected
-                      ? Border.all(color: AppColors.foreground, width: 1.5)
-                      : null,
-                  boxShadow: ring,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Container(
-                width: 4,
-                height: 4,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: overdue ? AppColors.destructive : Colors.transparent,
-                ),
-              ),
-            ],
-          ),
-        ),
+        child: body,
       ),
     );
   }

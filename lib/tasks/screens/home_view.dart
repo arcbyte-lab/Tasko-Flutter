@@ -26,6 +26,9 @@ class HomeView extends StatelessWidget {
     required this.onSearch,
     required this.onStopSearch,
     required this.onViewOptions,
+    required this.onToggleCalendar,
+    required this.onAccountSettings,
+    required this.onLogOut,
   });
 
   final HomeState state;
@@ -42,6 +45,9 @@ class HomeView extends StatelessWidget {
   final ValueChanged<String> onSearch;
   final VoidCallback onStopSearch;
   final VoidCallback onViewOptions;
+  final VoidCallback onToggleCalendar;
+  final VoidCallback onAccountSettings;
+  final VoidCallback onLogOut;
 
   @override
   Widget build(BuildContext context) {
@@ -107,25 +113,36 @@ class HomeView extends StatelessWidget {
         child: Column(
           children: [
             _TopBar(
-              name: state.user!.name,
+              user: state.user!,
               unread: state.unread > 0,
               onNotifications: onNotifications,
+              onAccountSettings: onAccountSettings,
+              onLogOut: onLogOut,
             ),
-            PulsePanel(
-              month: state.month,
-              today: state.today,
-              counts: state.dueCountsThisMonth,
-              overdueDays: state.overdueDays,
-              selectedDay: day,
-              onDayTap: onDayTap,
-              onMonthChange: onMonthChange,
+            Flexible(
+              flex: state.calendarExpanded ? 1 : 0,
+              fit: state.calendarExpanded ? FlexFit.tight : FlexFit.loose,
+              child: PulsePanel(
+                expanded: state.calendarExpanded,
+                onToggleExpanded: onToggleCalendar,
+                month: state.month,
+                today: state.today,
+                counts: state.dueCountsThisMonth,
+                overdueDays: state.overdueDays,
+                selectedDay: day,
+                onDayTap: onDayTap,
+                onMonthChange: onMonthChange,
+              ),
             ),
-            TabStrip(
-              tabs: state.tabs,
-              active: state.activeTab,
-              onSelect: onSelectTab,
-            ),
-            Expanded(child: ListView(children: items)),
+            // The full-screen calendar hides the tabs and the list.
+            if (!state.calendarExpanded) ...[
+              TabStrip(
+                tabs: state.tabs,
+                active: state.activeTab,
+                onSelect: onSelectTab,
+              ),
+              Expanded(child: ListView(children: items)),
+            ],
           ],
         ),
       ),
@@ -145,18 +162,21 @@ class HomeView extends StatelessWidget {
   }
 }
 
-// ponytail: the slider icon (meaning still open) and the calendar's maximize
-// icon are left out until their screens are built.
+// ponytail: the slider icon is left out; what it does is still open.
 class _TopBar extends StatelessWidget {
   const _TopBar({
-    required this.name,
+    required this.user,
     required this.unread,
     required this.onNotifications,
+    required this.onAccountSettings,
+    required this.onLogOut,
   });
 
-  final String name;
+  final User user;
   final bool unread;
   final VoidCallback onNotifications;
+  final VoidCallback onAccountSettings;
+  final VoidCallback onLogOut;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -169,7 +189,7 @@ class _TopBar extends StatelessWidget {
       children: [
         Expanded(
           child: Text(
-            'welcome, $name',
+            'welcome, ${user.name}',
             style: const TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w500,
@@ -206,21 +226,105 @@ class _TopBar extends StatelessWidget {
             ],
           ),
         ),
-        CircleAvatar(
-          radius: 12,
-          backgroundColor: AppColors.primary,
-          child: Text(
-            name.isEmpty ? '?' : name[0].toUpperCase(),
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
-            ),
-          ),
+        _AccountMenu(
+          user: user,
+          onAccountSettings: onAccountSettings,
+          onLogOut: onLogOut,
         ),
       ],
     ),
   );
+}
+
+/// The avatar, opening the user's name and email, account settings and
+/// log out (arcbyte lofi T4, hifi H2).
+class _AccountMenu extends StatelessWidget {
+  const _AccountMenu({
+    required this.user,
+    required this.onAccountSettings,
+    required this.onLogOut,
+  });
+
+  final User user;
+  final VoidCallback onAccountSettings;
+  final VoidCallback onLogOut;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget item(IconData icon, String label, Color color) => Row(
+      children: [
+        Icon(icon, size: 20, color: color),
+        const SizedBox(width: 12),
+        Flexible(
+          child: Text(
+            label,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 15, color: color),
+          ),
+        ),
+      ],
+    );
+    return PopupMenuButton<VoidCallback>(
+      tooltip: 'Account',
+      position: PopupMenuPosition.under,
+      color: AppColors.background,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(6),
+        side: const BorderSide(color: AppColors.border),
+      ),
+      onSelected: (action) => action(),
+      itemBuilder: (_) => [
+        PopupMenuItem(
+          enabled: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                user.name,
+                style: const TextStyle(
+                  fontSize: 15,
+                  color: AppColors.foreground,
+                ),
+              ),
+              if (user.email != null)
+                Text(
+                  user.email!,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.mutedForeground,
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          value: onAccountSettings,
+          child: item(
+            Icons.settings_outlined,
+            'account settings',
+            AppColors.foreground,
+          ),
+        ),
+        PopupMenuItem(
+          value: onLogOut,
+          child: item(Icons.logout, 'log out', AppColors.destructive),
+        ),
+      ],
+      child: CircleAvatar(
+        radius: 12,
+        backgroundColor: AppColors.primary,
+        child: Text(
+          user.name.isEmpty ? '?' : user.name[0].toUpperCase(),
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _Toolbar extends StatelessWidget {

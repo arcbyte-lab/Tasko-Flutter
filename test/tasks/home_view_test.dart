@@ -103,4 +103,32 @@ void main() {
     await tester.pump();
     expect(find.text('Needs a proof — coming soon'), findsOneWidget);
   });
+
+  testWidgets('the full-screen calendar hides the list; a day collapses it', (
+    tester,
+  ) async {
+    await pump(tester);
+    await tester.tap(find.byTooltip('Expand calendar'));
+    await tester.pumpAndSettle();
+    expect(find.text('WORKSPACES'), findsNothing);
+    expect(find.text('Fix login redirect'), findsNothing);
+    expect(find.text('5'), findsWidgets); // Oct 14's open count, in its cell
+
+    await tester.tap(find.bySemanticsLabel('Day 14'));
+    await tester.pumpAndSettle();
+    expect(find.text('WORKSPACES'), findsOneWidget);
+    expect(find.text('Oct 14'), findsOneWidget);
+    expect(find.byTooltip('Expand calendar'), findsOneWidget);
+  });
+
+  testWidgets('the account menu shows name and email', (tester) async {
+    await pump(tester);
+    await tester.tap(find.byTooltip('Account'));
+    await tester.pumpAndSettle();
+    expect(find.text('mira@arcbyte.dev'), findsOneWidget);
+    await tester.tap(find.text('log out'));
+    await tester.pump();
+    expect(find.text('action: log out'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
+  });
 }

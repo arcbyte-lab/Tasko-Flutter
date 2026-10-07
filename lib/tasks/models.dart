@@ -112,10 +112,13 @@ class TaskTab {
 }
 
 class User {
-  const User({required this.id, required this.name});
+  const User({required this.id, required this.name, this.email});
 
   final int id;
   final String name;
+
+  /// `users.email`. Only loaded for the viewer.
+  final String? email;
 }
 
 /// Someone who can be assigned a task in a tab: `project_members.role` or

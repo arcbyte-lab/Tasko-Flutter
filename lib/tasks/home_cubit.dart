@@ -19,6 +19,7 @@ class HomeState {
     this.view = ViewOptions.defaults,
     this.query,
     this.members = const [],
+    this.calendarExpanded = false,
   });
 
   /// Midnight of the current day; the cubit reads the clock once per load.
@@ -46,6 +47,9 @@ class HomeState {
 
   /// The active tab's members, for assignee names. Empty in `private`.
   final List<Member> members;
+
+  /// The calendar fills the screen; tabs and list are hidden.
+  final bool calendarExpanded;
 
   bool get loading => user == null;
   bool get searching => query != null;
@@ -100,6 +104,7 @@ class HomeState {
     ViewOptions? view,
     String? Function()? query,
     List<Member>? members,
+    bool? calendarExpanded,
   }) => HomeState(
     today: today,
     month: month ?? this.month,
@@ -113,6 +118,7 @@ class HomeState {
     view: view ?? this.view,
     query: query != null ? query() : this.query,
     members: members ?? this.members,
+    calendarExpanded: calendarExpanded ?? this.calendarExpanded,
   );
 }
 
@@ -168,12 +174,21 @@ class HomeCubit extends Cubit<HomeState> {
   Future<int> _unread() async =>
       (await _api.notifications()).where((n) => n.unread).length;
 
-  /// Tapping the selected day again clears the filter.
+  /// Tapping the selected day again clears the filter. In the full-screen
+  /// calendar a tap also collapses it, so the filtered list shows.
   void selectDay(DateTime day) {
     final same =
         state.selectedDay != null && isSameDay(state.selectedDay!, day);
-    emit(state.copyWith(selectedDay: () => same ? null : day));
+    emit(
+      state.copyWith(
+        selectedDay: () => same ? null : day,
+        calendarExpanded: false,
+      ),
+    );
   }
+
+  void toggleCalendar() =>
+      emit(state.copyWith(calendarExpanded: !state.calendarExpanded));
 
   void clearDay() => emit(state.copyWith(selectedDay: () => null));
 

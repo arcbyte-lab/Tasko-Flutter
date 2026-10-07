@@ -78,7 +78,7 @@ class FakeTasksApi implements TasksApi {
   static const taskoApp = TaskTab(TabKind.project, 1, 'tasko-app');
   static const taskoWeb = TaskTab(TabKind.project, 2, 'tasko-web');
 
-  static const _me = User(id: 1, name: 'Mira');
+  static const _me = User(id: 1, name: 'Mira', email: 'mira@arcbyte.dev');
   static const _ana = User(id: 2, name: 'Ana');
   static const _budi = User(id: 3, name: 'Budi');
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../core/toast.dart';
 import '../../notifications/notifications_screen.dart';
 import '../home_cubit.dart';
 import '../models.dart';
@@ -46,6 +47,10 @@ class HomePanel extends StatelessWidget {
           );
           if (task != null) await cubit.reload();
         },
+        onToggleCalendar: cubit.toggleCalendar,
+        // No account screen or sign-in exists yet (arcbyte lofi T12 pattern).
+        onAccountSettings: () => showToast(context, 'action: account settings'),
+        onLogOut: () => showToast(context, 'action: log out'),
         onStartSearch: cubit.startSearch,
         onSearch: cubit.search,
         onStopSearch: cubit.stopSearch,
