@@ -22,6 +22,10 @@ class HomeView extends StatelessWidget {
     required this.onOpen,
     required this.onNotifications,
     required this.onCreate,
+    required this.onStartSearch,
+    required this.onSearch,
+    required this.onStopSearch,
+    required this.onViewOptions,
   });
 
   final HomeState state;
@@ -34,6 +38,10 @@ class HomeView extends StatelessWidget {
   final VoidCallback onCreate;
   final ValueChanged<Task> onOpen;
   final VoidCallback onNotifications;
+  final VoidCallback onStartSearch;
+  final ValueChanged<String> onSearch;
+  final VoidCallback onStopSearch;
+  final VoidCallback onViewOptions;
 
   @override
   Widget build(BuildContext context) {
@@ -52,7 +60,19 @@ class HomeView extends StatelessWidget {
     );
 
     final items = <Widget>[
-      _Toolbar(count: listed.length),
+      if (state.searching)
+        _SearchField(
+          key: const ValueKey('search'),
+          onChanged: onSearch,
+          onClose: onStopSearch,
+        )
+      else
+        _Toolbar(
+          count: listed.length,
+          customised: !state.view.isDefault,
+          onSearch: onStartSearch,
+          onViewOptions: onViewOptions,
+        ),
       if (day != null)
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -66,15 +86,10 @@ class HomeView extends StatelessWidget {
         ),
       if (listed.isEmpty && completed.isEmpty)
         const _EmptyState()
-      // A selected day lists its tasks with no group headers.
-      else if (day != null)
-        ...listed.map(row)
       else
-        for (final g in DayGroup.values) ...[
-          if (listed.any((t) => dayGroup(t, state.today) == g)) ...[
-            _GroupHeader(g),
-            ...listed.where((t) => dayGroup(t, state.today) == g).map(row),
-          ],
+        for (final s in state.sections) ...[
+          if (s.label != null) _GroupHeader(s.label!, alert: s.alert),
+          ...s.tasks.map(row),
         ],
       if (completed.isNotEmpty) ...[
         _CompletedRow(
@@ -114,21 +129,24 @@ class HomeView extends StatelessWidget {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: onCreate,
-        tooltip: 'Create task',
-        shape: const CircleBorder(),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        elevation: 1,
-        child: const Icon(Icons.add),
-      ),
+      // Hidden while searching, as in the mockup.
+      floatingActionButton: state.searching
+          ? null
+          : FloatingActionButton(
+              onPressed: onCreate,
+              tooltip: 'Create task',
+              shape: const CircleBorder(),
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              elevation: 1,
+              child: const Icon(Icons.add),
+            ),
     );
   }
 }
 
-// ponytail: the slider icon (meaning still open), the maximize, search and
-// view-options icons are left out until their screens are built.
+// ponytail: the slider icon (meaning still open) and the calendar's maximize
+// icon are left out until their screens are built.
 class _TopBar extends StatelessWidget {
   const _TopBar({
     required this.name,
@@ -206,18 +224,94 @@ class _TopBar extends StatelessWidget {
 }
 
 class _Toolbar extends StatelessWidget {
-  const _Toolbar({required this.count});
+  const _Toolbar({
+    required this.count,
+    required this.customised,
+    required this.onSearch,
+    required this.onViewOptions,
+  });
 
   final int count;
 
+  /// Group, sort or a filter differs from the default.
+  final bool customised;
+  final VoidCallback onSearch;
+  final VoidCallback onViewOptions;
+
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-    child: Text(
-      '$count open',
-      style: const TextStyle(fontSize: 12, color: AppColors.mutedForeground),
+    padding: const EdgeInsets.fromLTRB(16, 4, 4, 0),
+    child: Row(
+      children: [
+        Expanded(
+          child: Text(
+            '$count open',
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppColors.mutedForeground,
+            ),
+          ),
+        ),
+        IconButton(
+          onPressed: onSearch,
+          tooltip: 'Search',
+          icon: const Icon(Icons.search, color: AppColors.mutedForeground),
+        ),
+        IconButton(
+          onPressed: onViewOptions,
+          tooltip: 'View options',
+          icon: Icon(
+            Icons.tune,
+            color: customised ? AppColors.primary : AppColors.mutedForeground,
+          ),
+        ),
+      ],
     ),
   );
+}
+
+class _SearchField extends StatelessWidget {
+  const _SearchField({
+    super.key,
+    required this.onChanged,
+    required this.onClose,
+  });
+
+  final ValueChanged<String> onChanged;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    OutlineInputBorder border(Color c, double w) => OutlineInputBorder(
+      borderRadius: BorderRadius.circular(6),
+      borderSide: BorderSide(color: c, width: w),
+    );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: TextField(
+        autofocus: true,
+        onChanged: onChanged,
+        textInputAction: TextInputAction.search,
+        style: const TextStyle(fontSize: 15),
+        decoration: InputDecoration(
+          isDense: true,
+          hintText: 'search tasks',
+          hintStyle: const TextStyle(color: AppColors.placeholder),
+          prefixIcon: const Icon(
+            Icons.search,
+            color: AppColors.mutedForeground,
+          ),
+          suffixIcon: IconButton(
+            onPressed: onClose,
+            tooltip: 'Close search',
+            icon: const Icon(Icons.close, color: AppColors.mutedForeground),
+          ),
+          enabledBorder: border(AppColors.border, 1),
+          focusedBorder: border(AppColors.primary, 2),
+        ),
+      ),
+    );
+  }
 }
 
 class _DayChip extends StatelessWidget {
@@ -267,19 +361,20 @@ class _DayChip extends StatelessWidget {
 }
 
 class _GroupHeader extends StatelessWidget {
-  const _GroupHeader(this.group);
+  const _GroupHeader(this.label, {this.alert = false});
 
-  final DayGroup group;
+  final String label;
+
+  /// OVERDUE is red.
+  final bool alert;
 
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
     child: Text(
-      group.label,
+      label,
       style: groupLabelStyle(
-        color: group == DayGroup.overdue
-            ? AppColors.destructive
-            : AppColors.mutedForeground,
+        color: alert ? AppColors.destructive : AppColors.mutedForeground,
       ),
     ),
   );

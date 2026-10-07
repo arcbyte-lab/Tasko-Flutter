@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'models.dart';
 import 'task_rules.dart';
 import 'tasks_api.dart';
+import 'view_options.dart';
 
 class HomeState {
   const HomeState({
@@ -15,6 +16,9 @@ class HomeState {
     this.selectedDay,
     this.showCompleted = false,
     this.unread = 0,
+    this.view = ViewOptions.defaults,
+    this.query,
+    this.members = const [],
   });
 
   /// Midnight of the current day; the cubit reads the clock once per load.
@@ -34,20 +38,44 @@ class HomeState {
   /// Unread notifications, for the bell's dot.
   final int unread;
 
+  /// Group, sort and filter from the view-options sheet.
+  final ViewOptions view;
+
+  /// Non-null while searching ("" before anything is typed).
+  final String? query;
+
+  /// The active tab's members, for assignee names. Empty in `private`.
+  final List<Member> members;
+
   bool get loading => user == null;
+  bool get searching => query != null;
 
-  bool _inDay(Task t) =>
-      selectedDay == null ||
-      (t.dueDate != null && isSameDay(t.dueDate!, selectedDay!));
+  bool _shown(Task t) =>
+      (selectedDay == null ||
+          (t.dueDate != null && isSameDay(t.dueDate!, selectedDay!))) &&
+      (query == null ||
+          t.name.toLowerCase().contains(query!.trim().toLowerCase())) &&
+      view.matches(t);
 
-  /// Not done, sorted, narrowed to [selectedDay].
+  /// Not done, filtered and sorted.
   List<Task> get listed =>
-      tasks.where((t) => t.status != TaskStatus.done && _inDay(t)).toList()
-        ..sort(taskOrder);
+      view.sort(tasks.where((t) => t.status != TaskStatus.done && _shown(t)));
 
   List<Task> get completed =>
-      tasks.where((t) => t.status == TaskStatus.done && _inDay(t)).toList()
-        ..sort(taskOrder);
+      view.sort(tasks.where((t) => t.status == TaskStatus.done && _shown(t)));
+
+  /// [listed] under headers. A selected day or a search shows one flat
+  /// block, as the mockups do.
+  List<Section> get sections => selectedDay != null || searching
+      ? [(label: null, alert: false, tasks: listed)]
+      : view.sections(
+          listed,
+          now: today,
+          names: {
+            for (final m in members)
+              m.user.id: m.user.id == user?.id ? 'me' : m.user.name,
+          },
+        );
 
   Map<int, int> get dueCountsThisMonth => dueCounts(tasks, month);
 
@@ -69,6 +97,9 @@ class HomeState {
     DateTime? Function()? selectedDay,
     bool? showCompleted,
     int? unread,
+    ViewOptions? view,
+    String? Function()? query,
+    List<Member>? members,
   }) => HomeState(
     today: today,
     month: month ?? this.month,
@@ -79,6 +110,9 @@ class HomeState {
     selectedDay: selectedDay != null ? selectedDay() : this.selectedDay,
     showCompleted: showCompleted ?? this.showCompleted,
     unread: unread ?? this.unread,
+    view: view ?? this.view,
+    query: query != null ? query() : this.query,
+    members: members ?? this.members,
   );
 }
 
@@ -102,6 +136,7 @@ class HomeCubit extends Cubit<HomeState> {
         activeTab: tab,
         tasks: await _api.tasksFor(tab),
         unread: await _unread(),
+        members: await _api.membersOf(tab),
       ),
     );
   }
@@ -113,8 +148,10 @@ class HomeCubit extends Cubit<HomeState> {
       state.copyWith(
         activeTab: tab,
         tasks: tasks,
+        members: await _api.membersOf(tab),
         selectedDay: () => null,
         showCompleted: false,
+        view: state.view.withoutFilters(),
       ),
     );
   }
@@ -145,6 +182,12 @@ class HomeCubit extends Cubit<HomeState> {
       month: DateTime(state.month.year, state.month.month + delta),
     ),
   );
+
+  void setView(ViewOptions v) => emit(state.copyWith(view: v));
+
+  void startSearch() => emit(state.copyWith(query: () => ''));
+  void search(String q) => emit(state.copyWith(query: () => q));
+  void stopSearch() => emit(state.copyWith(query: () => null));
 
   void toggleCompleted() =>
       emit(state.copyWith(showCompleted: !state.showCompleted));

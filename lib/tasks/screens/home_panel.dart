@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../notifications/notifications_screen.dart';
 import '../home_cubit.dart';
+import '../models.dart';
+import '../widgets/view_options_sheet.dart';
 import '../task_rules.dart';
 import '../tasks_api.dart';
 import 'create_task_sheet.dart';
@@ -43,6 +45,19 @@ class HomePanel extends StatelessWidget {
             today: state.today,
           );
           if (task != null) await cubit.reload();
+        },
+        onStartSearch: cubit.startSearch,
+        onSearch: cubit.search,
+        onStopSearch: cubit.stopSearch,
+        onViewOptions: () async {
+          final v = await showViewOptionsSheet(
+            context,
+            current: state.view,
+            personal: state.activeTab?.kind == TabKind.private,
+            members: state.members,
+            meId: state.user!.id,
+          );
+          if (v != null) cubit.setView(v);
         },
         onNotifications: () async {
           await openNotifications(context);
