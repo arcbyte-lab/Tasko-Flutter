@@ -19,6 +19,7 @@ class HomeView extends StatelessWidget {
     required this.onMonthChange,
     required this.onToggleCompleted,
     required this.onTick,
+    required this.onOpen,
     required this.onCreate,
   });
 
@@ -30,6 +31,7 @@ class HomeView extends StatelessWidget {
   final VoidCallback onToggleCompleted;
   final ValueChanged<Task> onTick;
   final VoidCallback onCreate;
+  final ValueChanged<Task> onOpen;
 
   @override
   Widget build(BuildContext context) {
@@ -40,8 +42,12 @@ class HomeView extends StatelessWidget {
     final completed = state.completed;
     final day = state.selectedDay;
 
-    Widget row(Task t) =>
-        TaskRow(task: t, now: state.today, onTick: () => onTick(t));
+    Widget row(Task t) => TaskRow(
+      task: t,
+      now: state.today,
+      onTick: () => onTick(t),
+      onTap: () => onOpen(t),
+    );
 
     final items = <Widget>[
       _Toolbar(count: listed.length),

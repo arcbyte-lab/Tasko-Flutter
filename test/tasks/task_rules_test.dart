@@ -8,6 +8,7 @@ Task task(
   DateTime? due,
   String? proof,
   bool personal = false,
+  int? assignee,
 }) => Task(
   id: id,
   name: 't$id',
@@ -15,6 +16,7 @@ Task task(
   dueDate: due,
   requiredProofType: proof,
   personal: personal,
+  assigneeId: assignee,
 );
 
 void main() {
@@ -102,5 +104,72 @@ void main() {
   test('short date', () {
     expect(shortDate(DateTime(2026, 10, 3), now), 'Oct 3');
     expect(shortDate(DateTime(2027, 1, 3), now), 'Jan 3, 2027');
+  });
+
+  group('action bar', () {
+    DetailAction a(Task t, {bool reviewer = false}) =>
+        actionFor(t, viewerId: 1, canReview: reviewer);
+    final (me, other) = (1, 2);
+
+    test('the assignee starts, finishes, or submits proof', () {
+      expect(
+        a(task(TaskStatus.waiting, assignee: me)),
+        DetailAction.startWorking,
+      );
+      expect(
+        a(task(TaskStatus.inProgress, assignee: me)),
+        DetailAction.markDone,
+      );
+      expect(
+        a(task(TaskStatus.inProgress, assignee: me, proof: 'image')),
+        DetailAction.submitProof,
+      );
+      expect(
+        a(task(TaskStatus.review, assignee: me)),
+        DetailAction.waitingForReview,
+      );
+    });
+
+    test('a reviewer reviews, even their own task', () {
+      expect(
+        a(task(TaskStatus.review, assignee: other), reviewer: true),
+        DetailAction.review,
+      );
+      expect(
+        a(task(TaskStatus.review, assignee: me), reviewer: true),
+        DetailAction.review,
+      );
+    });
+
+    test('someone else sees no bar until done', () {
+      expect(a(task(TaskStatus.waiting, assignee: other)), DetailAction.none);
+      expect(a(task(TaskStatus.review, assignee: other)), DetailAction.none);
+      expect(a(task(TaskStatus.done, assignee: other)), DetailAction.done);
+    });
+
+    test('personal tasks are always mine', () {
+      expect(
+        a(task(TaskStatus.todo, personal: true)),
+        DetailAction.startWorking,
+      );
+      expect(
+        a(task(TaskStatus.inProgress, personal: true)),
+        DetailAction.markDone,
+      );
+    });
+  });
+
+  test('relative time', () {
+    expect(
+      relativeTime(now.subtract(const Duration(seconds: 20)), now),
+      'just now',
+    );
+    expect(
+      relativeTime(now.subtract(const Duration(minutes: 45)), now),
+      '45m ago',
+    );
+    expect(relativeTime(now.subtract(const Duration(hours: 2)), now), '2h ago');
+    expect(relativeTime(now.subtract(const Duration(days: 3)), now), '3d ago');
+    expect(relativeTime(DateTime(2026, 9, 1), now), 'Sep 1');
   });
 }

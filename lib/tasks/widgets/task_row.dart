@@ -11,11 +11,15 @@ class TaskRow extends StatelessWidget {
     required this.task,
     required this.now,
     required this.onTick,
+    required this.onTap,
   });
 
   final Task task;
   final DateTime now;
   final VoidCallback onTick;
+
+  /// Opens Task Detail.
+  final VoidCallback onTap;
 
   static Color priorityColor(Priority p) => switch (p) {
     Priority.urgent => AppColors.destructive,
@@ -31,76 +35,87 @@ class TaskRow extends StatelessWidget {
     final red = meta.copyWith(color: AppColors.destructive);
     const dot = TextSpan(text: ' · ');
 
-    return Container(
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppColors.border)),
-      ),
-      padding: const EdgeInsets.fromLTRB(4, 6, 16, 6),
-      child: Row(
-        children: [
-          _Checkbox(status: task.status, onTap: onTick),
-          const SizedBox(width: 4),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  task.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: done
-                        ? AppColors.mutedForeground
-                        : AppColors.foreground,
-                    decoration: done ? TextDecoration.lineThrough : null,
-                    decorationColor: AppColors.mutedForeground,
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: AppColors.border)),
+        ),
+        padding: const EdgeInsets.fromLTRB(4, 6, 16, 6),
+        child: Row(
+          children: [
+            TaskCheckbox(status: task.status, onTap: onTick),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    task.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: done
+                          ? AppColors.mutedForeground
+                          : AppColors.foreground,
+                      decoration: done ? TextDecoration.lineThrough : null,
+                      decorationColor: AppColors.mutedForeground,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 2),
-                Text.rich(
-                  TextSpan(
-                    style: meta,
-                    children: [
-                      TextSpan(
-                        text: task.priority.name,
-                        style: meta.copyWith(
-                          color: priorityColor(task.priority),
-                        ),
-                      ),
-                      dot,
-                      TextSpan(text: task.status.label),
-                      if (overdue) ...[
-                        dot,
-                        TextSpan(text: 'overdue', style: red),
-                      ],
-                      if (task.dueDate != null) ...[
-                        dot,
+                  const SizedBox(height: 2),
+                  Text.rich(
+                    TextSpan(
+                      style: meta,
+                      children: [
                         TextSpan(
-                          text: shortDate(task.dueDate!, now),
-                          style: overdue ? red : null,
+                          text: task.priority.name,
+                          style: meta.copyWith(
+                            color: priorityColor(task.priority),
+                          ),
                         ),
+                        dot,
+                        TextSpan(text: task.status.label),
+                        if (overdue) ...[
+                          dot,
+                          TextSpan(text: 'overdue', style: red),
+                        ],
+                        if (task.dueDate != null) ...[
+                          dot,
+                          TextSpan(
+                            text: shortDate(task.dueDate!, now),
+                            style: overdue ? red : null,
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
 /// Three looks: open, in review (lower half tinted), done (filled with ✓).
-class _Checkbox extends StatelessWidget {
-  const _Checkbox({required this.status, required this.onTap});
+class TaskCheckbox extends StatelessWidget {
+  const TaskCheckbox({
+    super.key,
+    required this.status,
+    required this.onTap,
+    this.size = 20,
+  });
 
   final TaskStatus status;
   final VoidCallback onTap;
+
+  /// 20 on the list, 16 for sub-tasks. The tap target stays 44.
+  final double size;
 
   @override
   Widget build(BuildContext context) {
@@ -119,8 +134,8 @@ class _Checkbox extends StatelessWidget {
           height: 44,
           child: Center(
             child: Container(
-              width: 20,
-              height: 20,
+              width: size,
+              height: size,
               clipBehavior: Clip.antiAlias,
               decoration: BoxDecoration(
                 color: done ? AppColors.primary : Colors.white,
@@ -133,7 +148,7 @@ class _Checkbox extends StatelessWidget {
                 ),
               ),
               child: done
-                  ? const Icon(Icons.check, size: 14, color: Colors.white)
+                  ? Icon(Icons.check, size: size * 0.7, color: Colors.white)
                   : review
                   ? const Align(
                       alignment: Alignment.bottomCenter,

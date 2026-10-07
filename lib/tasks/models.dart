@@ -24,7 +24,7 @@ enum Priority {
 
 /// One row in the list: a `tasks` row, or a `personal_tasks` row when
 /// [personal] is true. Both tables map onto this one model so the list rules
-/// work on either.
+/// work on either. Sub-tasks are Tasks with a [parentId].
 class Task {
   const Task({
     required this.id,
@@ -36,6 +36,9 @@ class Task {
     this.assigneeId,
     this.requiredProofType,
     this.personal = false,
+    this.code,
+    this.parentId,
+    this.completedAt,
   });
 
   final int id;
@@ -56,16 +59,34 @@ class Task {
   final String? requiredProofType;
   final bool personal;
 
-  Task copyWith({TaskStatus? status}) => Task(
+  /// `tasks.code`, e.g. "TW-0042". Personal tasks have none.
+  final String? code;
+  final int? parentId;
+
+  /// `completed_date` or `completed_at`.
+  final DateTime? completedAt;
+
+  Task copyWith({
+    String? name,
+    String? Function()? description,
+    TaskStatus? status,
+    Priority? priority,
+    DateTime? dueDate,
+    int? assigneeId,
+    DateTime? Function()? completedAt,
+  }) => Task(
     id: id,
-    name: name,
+    name: name ?? this.name,
     status: status ?? this.status,
-    priority: priority,
-    dueDate: dueDate,
-    description: description,
-    assigneeId: assigneeId,
+    priority: priority ?? this.priority,
+    dueDate: dueDate ?? this.dueDate,
+    description: description != null ? description() : this.description,
+    assigneeId: assigneeId ?? this.assigneeId,
     requiredProofType: requiredProofType,
     personal: personal,
+    code: code,
+    parentId: parentId,
+    completedAt: completedAt != null ? completedAt() : this.completedAt,
   );
 }
 
@@ -104,4 +125,48 @@ class Member {
 
   final User user;
   final String role;
+}
+
+/// A `comments` row on a team task.
+class Comment {
+  const Comment({
+    required this.author,
+    required this.body,
+    required this.createdAt,
+  });
+
+  final User author;
+  final String body;
+  final DateTime createdAt;
+}
+
+/// What Task Detail shows beyond the row. The server decides the `can*`
+/// flags from roles (arcbyte decision 0004), so the app does not repeat
+/// those rules.
+class TaskDetail {
+  const TaskDetail({
+    required this.tab,
+    this.subtasks = const [],
+    this.comments = const [],
+    this.assignee,
+    this.canReview = false,
+    this.canArchive = false,
+    this.canRequestExtension = false,
+  });
+
+  /// The tab the task lives in.
+  final TaskTab tab;
+  final List<Task> subtasks;
+  final List<Comment> comments;
+  final User? assignee;
+
+  /// The viewer is the project's person-in-charge or author, or the
+  /// division's admin or supervisor.
+  final bool canReview;
+
+  /// The viewer created the task.
+  final bool canArchive;
+
+  /// The viewer is a member, not management.
+  final bool canRequestExtension;
 }

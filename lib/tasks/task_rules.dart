@@ -116,3 +116,46 @@ String shortDate(DateTime d, DateTime now) {
   final s = '${_months[d.month - 1]} ${d.day}';
   return d.year == now.year ? s : '$s, ${d.year}';
 }
+
+/// The bar under Task Detail (arcbyte lofi ticket T9).
+enum DetailAction {
+  startWorking,
+  markDone,
+  submitProof,
+  waitingForReview,
+  review,
+  done,
+  none,
+}
+
+/// What the action bar offers [viewerId] on [t]. A reviewer who is also the
+/// assignee may review their own task (arcbyte decision 0004).
+DetailAction actionFor(
+  Task t, {
+  required int viewerId,
+  required bool canReview,
+}) {
+  if (t.status == TaskStatus.done) return DetailAction.done;
+  final mine = t.personal || t.assigneeId == viewerId;
+  if (t.status == TaskStatus.review) {
+    if (canReview) return DetailAction.review;
+    return mine ? DetailAction.waitingForReview : DetailAction.none;
+  }
+  if (!mine) return DetailAction.none;
+  if (t.status == TaskStatus.todo || t.status == TaskStatus.waiting) {
+    return DetailAction.startWorking;
+  }
+  return t.requiredProofType == null
+      ? DetailAction.markDone
+      : DetailAction.submitProof;
+}
+
+/// "just now", "45m ago", "2h ago", "3d ago", then the short date.
+String relativeTime(DateTime then, DateTime now) {
+  final d = now.difference(then);
+  if (d.inMinutes < 1) return 'just now';
+  if (d.inHours < 1) return '${d.inMinutes}m ago';
+  if (d.inDays < 1) return '${d.inHours}h ago';
+  if (d.inDays < 7) return '${d.inDays}d ago';
+  return shortDate(then, now);
+}

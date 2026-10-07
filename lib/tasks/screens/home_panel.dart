@@ -6,6 +6,7 @@ import '../task_rules.dart';
 import '../tasks_api.dart';
 import 'create_task_sheet.dart';
 import 'home_view.dart';
+import 'task_detail_sheet.dart';
 
 /// Connects [HomeView] to [HomeCubit] and shows its snackbars.
 class HomePanel extends StatelessWidget {
@@ -41,6 +42,15 @@ class HomePanel extends StatelessWidget {
             today: state.today,
           );
           if (task != null) await cubit.reload();
+        },
+        onOpen: (task) async {
+          await showTaskDetailSheet(
+            context,
+            api: context.read<TasksApi>(),
+            task: task,
+            today: state.today,
+          );
+          await cubit.reload();
         },
       ),
     );
