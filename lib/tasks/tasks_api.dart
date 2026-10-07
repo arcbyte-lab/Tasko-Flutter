@@ -13,6 +13,20 @@ abstract interface class TasksApi {
 
   /// The server sets completed_date / review_date alongside.
   Future<Task> setStatus(Task task, TaskStatus status);
+
+  /// Who a task in [tab] can be assigned to, the current user first.
+  Future<List<Member>> membersOf(TaskTab tab);
+
+  /// Creates a task in [tab]: a personal task in `private`, otherwise a team
+  /// task. The server fills in `code`, `division_id` and `creator_id`.
+  Future<Task> createTask(
+    TaskTab tab, {
+    required String name,
+    String? description,
+    required Priority priority,
+    DateTime? dueDate,
+    int? assigneeId,
+  });
 }
 
 /// In-memory [TasksApi] seeded with the mockups' sample data, dated relative
@@ -51,6 +65,49 @@ class FakeTasksApi implements TasksApi {
       if (i != -1) list[i] = updated;
     }
     return updated;
+  }
+
+  @override
+  Future<List<Member>> membersOf(TaskTab tab) async {
+    if (tab.kind == TabKind.private) return [];
+    final lead = tab.kind == TabKind.project ? 'person-in-charge' : 'admin';
+    return [
+      Member(await me(), 'member'),
+      Member(const User(id: 2, name: 'Ana'), lead),
+      for (final (i, name) in const [
+        'Budi',
+        'Citra',
+        'Dimas',
+        'Eka',
+        'Fajar',
+      ].indexed)
+        Member(User(id: i + 3, name: name), 'member'),
+    ];
+  }
+
+  @override
+  Future<Task> createTask(
+    TaskTab tab, {
+    required String name,
+    String? description,
+    required Priority priority,
+    DateTime? dueDate,
+    int? assigneeId,
+  }) async {
+    final personal = tab.kind == TabKind.private;
+    final ids = _tasks.values.expand((l) => l).map((t) => t.id);
+    final task = Task(
+      id: ids.fold(0, (a, b) => a > b ? a : b) + 1,
+      name: name,
+      description: description,
+      priority: priority,
+      dueDate: dueDate,
+      assigneeId: personal ? null : assigneeId,
+      status: personal ? TaskStatus.todo : TaskStatus.waiting,
+      personal: personal,
+    );
+    (_tasks[tab] ??= []).add(task);
+    return task;
   }
 
   static Map<TaskTab, List<Task>> _seed(DateTime today) {

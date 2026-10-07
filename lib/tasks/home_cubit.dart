@@ -112,6 +112,10 @@ class HomeCubit extends Cubit<HomeState> {
     );
   }
 
+  /// Fetches the active tab's tasks again, after a create.
+  Future<void> reload() async =>
+      emit(state.copyWith(tasks: await _api.tasksFor(state.activeTab!)));
+
   /// Tapping the selected day again clears the filter.
   void selectDay(DateTime day) {
     final same =

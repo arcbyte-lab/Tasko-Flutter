@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../home_cubit.dart';
 import '../task_rules.dart';
+import '../tasks_api.dart';
+import 'create_task_sheet.dart';
 import 'home_view.dart';
 
 /// Connects [HomeView] to [HomeCubit] and shows its snackbars.
@@ -31,7 +33,15 @@ class HomePanel extends StatelessWidget {
             snack('Needs a proof — coming soon');
           }
         },
-        onCreate: () => snack('Create task — coming soon'),
+        onCreate: () async {
+          final task = await showCreateTaskSheet(
+            context,
+            api: context.read<TasksApi>(),
+            tab: state.activeTab!,
+            today: state.today,
+          );
+          if (task != null) await cubit.reload();
+        },
       ),
     );
   }

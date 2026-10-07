@@ -32,6 +32,8 @@ class Task {
     required this.status,
     this.priority = Priority.medium,
     this.dueDate,
+    this.description,
+    this.assigneeId,
     this.requiredProofType,
     this.personal = false,
   });
@@ -44,6 +46,12 @@ class Task {
   final Priority priority;
   final DateTime? dueDate;
 
+  /// `tasks.description` or `personal_tasks.note`.
+  final String? description;
+
+  /// Team tasks only.
+  final int? assigneeId;
+
   /// Set means ticking sends the task to review (arcbyte decision 0004).
   final String? requiredProofType;
   final bool personal;
@@ -54,6 +62,8 @@ class Task {
     status: status ?? this.status,
     priority: priority,
     dueDate: dueDate,
+    description: description,
+    assigneeId: assigneeId,
     requiredProofType: requiredProofType,
     personal: personal,
   );
@@ -85,4 +95,13 @@ class User {
 
   final int id;
   final String name;
+}
+
+/// Someone who can be assigned a task in a tab: `project_members.role` or
+/// `division_members.role_type`.
+class Member {
+  const Member(this.user, this.role);
+
+  final User user;
+  final String role;
 }

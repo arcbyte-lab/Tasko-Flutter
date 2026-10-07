@@ -51,9 +51,25 @@ final ThemeData appTheme = ThemeData(
     thickness: 1,
     space: 1,
   ),
+  bottomSheetTheme: const BottomSheetThemeData(
+    dragHandleColor: AppColors.border,
+    dragHandleSize: Size(36, 4),
+    modalBarrierColor: Color(0x66000000), // scrim: black at 40%
+  ),
+  radioTheme: RadioThemeData(
+    fillColor: WidgetStateProperty.resolveWith(
+      (states) => states.contains(WidgetState.selected)
+          ? AppColors.primary
+          : AppColors.controlBorder,
+    ),
+  ),
   snackBarTheme: SnackBarThemeData(
     backgroundColor: AppColors.foreground,
-    contentTextStyle: const TextStyle(fontSize: 15, color: Colors.white),
+    contentTextStyle: const TextStyle(
+      fontFamily: 'Inter',
+      fontSize: 15,
+      color: Colors.white,
+    ),
     behavior: SnackBarBehavior.floating,
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
   ),

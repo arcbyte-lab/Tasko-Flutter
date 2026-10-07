@@ -14,13 +14,17 @@ void main() {
     tester.view.physicalSize = const Size(393 * 3, 852 * 3);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
-    final cubit = HomeCubit(FakeTasksApi(today: now), now: () => now);
+    final api = FakeTasksApi(today: now);
+    final cubit = HomeCubit(api, now: () => now);
     await tester.pumpWidget(
       MaterialApp(
         theme: appTheme,
-        home: BlocProvider.value(
-          value: cubit..load(),
-          child: const HomePanel(),
+        home: RepositoryProvider<TasksApi>.value(
+          value: api,
+          child: BlocProvider.value(
+            value: cubit..load(),
+            child: const HomePanel(),
+          ),
         ),
       ),
     );

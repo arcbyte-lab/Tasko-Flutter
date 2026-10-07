@@ -14,9 +14,12 @@ void main() {
       title: 'Tasko',
       debugShowCheckedModeBanner: false,
       theme: appTheme,
-      home: BlocProvider(
-        create: (_) => HomeCubit(api)..load(),
-        child: const HomePanel(),
+      home: RepositoryProvider<TasksApi>.value(
+        value: api,
+        child: BlocProvider(
+          create: (_) => HomeCubit(api)..load(),
+          child: const HomePanel(),
+        ),
       ),
     ),
   );
