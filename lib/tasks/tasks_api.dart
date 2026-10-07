@@ -44,6 +44,13 @@ abstract interface class TasksApi {
 
   /// A `task_deadline_requests` row.
   Future<void> requestExtension(Task task, DateTime newDue, String reason);
+
+  /// The viewer's notifications, newest first.
+  Future<List<AppNotification>> notifications();
+
+  Future<void> markRead(String notificationId);
+
+  Future<void> markAllRead();
 }
 
 /// In-memory [TasksApi] seeded with the mockups' sample data, dated relative
@@ -61,6 +68,7 @@ class FakeTasksApi implements TasksApi {
   final _tasks = <TaskTab, List<Task>>{};
   final _comments = <int, List<Comment>>{};
   final _creatorOf = <int, int>{};
+  final _notifications = <AppNotification>[];
 
   /// What was sent, for tests to check.
   final reviews = <(int taskId, bool approve, String? reason)>[];
@@ -204,6 +212,22 @@ class FakeTasksApi implements TasksApi {
     DateTime newDue,
     String reason,
   ) async => extensionRequests.add((task.id, newDue, reason));
+
+  @override
+  Future<List<AppNotification>> notifications() async =>
+      [..._notifications]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+  @override
+  Future<void> markRead(String notificationId) async {
+    final i = _notifications.indexWhere((n) => n.id == notificationId);
+    if (i != -1) _notifications[i] = _notifications[i].markRead(DateTime.now());
+  }
+
+  @override
+  Future<void> markAllRead() async {
+    final now = DateTime.now();
+    _notifications.setAll(0, _notifications.map((n) => n.markRead(now)));
+  }
 
   TaskTab _tabOf(Task task) => _tasks.entries
       .firstWhere(
@@ -362,6 +386,52 @@ class FakeTasksApi implements TasksApi {
     sub(login, 'Add redirect test');
 
     final now = DateTime.now();
+    var n = 0;
+    void note(String text, Duration ago, {User? actor, bool read = false}) =>
+        _notifications.add(
+          AppNotification(
+            id: 'n${++n}',
+            text: text,
+            actor: actor,
+            createdAt: now.subtract(ago),
+            readAt: read ? now : null,
+          ),
+        );
+    note(
+      'Ana assigned you Deploy staging',
+      const Duration(minutes: 5),
+      actor: _ana,
+    );
+    note(
+      'Your extension request for Fix login redirect was approved',
+      const Duration(hours: 1),
+    );
+    note('Write onboarding copy is due today', const Duration(hours: 2));
+    note(
+      'Budi commented on Review PR #42',
+      const Duration(days: 1),
+      actor: _budi,
+      read: true,
+    );
+    note(
+      'Citra moved Design empty state to in progress',
+      const Duration(days: 1, hours: 2),
+      actor: const User(id: 4, name: 'Citra'),
+      read: true,
+    );
+    note(
+      'Dimas mentioned you in Update favicon',
+      const Duration(days: 2),
+      actor: const User(id: 5, name: 'Dimas'),
+      read: true,
+    );
+    note(
+      'Budi marked Pick an icon set as done',
+      const Duration(days: 2, hours: 3),
+      actor: _budi,
+      read: true,
+    );
+
     _comments[login.id] = [
       Comment(
         author: _ana,

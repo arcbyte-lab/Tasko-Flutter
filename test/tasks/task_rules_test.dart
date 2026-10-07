@@ -172,4 +172,12 @@ void main() {
     expect(relativeTime(now.subtract(const Duration(days: 3)), now), '3d ago');
     expect(relativeTime(DateTime(2026, 9, 1), now), 'Sep 1');
   });
+
+  test('notification time', () {
+    final at = DateTime(2026, 10, 7, 10);
+    expect(notificationTime(DateTime(2026, 10, 7, 9, 55), at), '5m ago');
+    expect(notificationTime(DateTime(2026, 10, 7, 0, 30), at), '9h ago');
+    expect(notificationTime(DateTime(2026, 10, 6, 23), at), 'yesterday');
+    expect(notificationTime(DateTime(2026, 10, 5, 12), at), 'Oct 5');
+  });
 }

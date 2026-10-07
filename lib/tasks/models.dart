@@ -170,3 +170,34 @@ class TaskDetail {
   /// The viewer is a member, not management.
   final bool canRequestExtension;
 }
+
+/// A Laravel `notifications` row, with its text already written by the
+/// server from `type` and `data`.
+class AppNotification {
+  const AppNotification({
+    required this.id,
+    required this.text,
+    required this.createdAt,
+    this.actor,
+    this.readAt,
+  });
+
+  /// `notifications.id` is a uuid.
+  final String id;
+  final String text;
+  final DateTime createdAt;
+
+  /// Who caused it. Null for system messages (due soon, approvals).
+  final User? actor;
+  final DateTime? readAt;
+
+  bool get unread => readAt == null;
+
+  AppNotification markRead(DateTime at) => AppNotification(
+    id: id,
+    text: text,
+    createdAt: createdAt,
+    actor: actor,
+    readAt: readAt ?? at,
+  );
+}

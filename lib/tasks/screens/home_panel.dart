@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../notifications/notifications_screen.dart';
 import '../home_cubit.dart';
 import '../task_rules.dart';
 import '../tasks_api.dart';
@@ -42,6 +43,10 @@ class HomePanel extends StatelessWidget {
             today: state.today,
           );
           if (task != null) await cubit.reload();
+        },
+        onNotifications: () async {
+          await openNotifications(context);
+          await cubit.reload();
         },
         onOpen: (task) async {
           await showTaskDetailSheet(

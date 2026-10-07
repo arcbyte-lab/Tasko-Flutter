@@ -14,6 +14,7 @@ class HomeState {
     this.tasks = const [],
     this.selectedDay,
     this.showCompleted = false,
+    this.unread = 0,
   });
 
   /// Midnight of the current day; the cubit reads the clock once per load.
@@ -29,6 +30,9 @@ class HomeState {
   final List<Task> tasks;
   final DateTime? selectedDay;
   final bool showCompleted;
+
+  /// Unread notifications, for the bell's dot.
+  final int unread;
 
   bool get loading => user == null;
 
@@ -64,6 +68,7 @@ class HomeState {
     List<Task>? tasks,
     DateTime? Function()? selectedDay,
     bool? showCompleted,
+    int? unread,
   }) => HomeState(
     today: today,
     month: month ?? this.month,
@@ -73,6 +78,7 @@ class HomeState {
     tasks: tasks ?? this.tasks,
     selectedDay: selectedDay != null ? selectedDay() : this.selectedDay,
     showCompleted: showCompleted ?? this.showCompleted,
+    unread: unread ?? this.unread,
   );
 }
 
@@ -95,6 +101,7 @@ class HomeCubit extends Cubit<HomeState> {
         tabs: tabs,
         activeTab: tab,
         tasks: await _api.tasksFor(tab),
+        unread: await _unread(),
       ),
     );
   }
@@ -112,9 +119,17 @@ class HomeCubit extends Cubit<HomeState> {
     );
   }
 
-  /// Fetches the active tab's tasks again, after a create.
-  Future<void> reload() async =>
-      emit(state.copyWith(tasks: await _api.tasksFor(state.activeTab!)));
+  /// Fetches the active tab's tasks and the unread count again, after a
+  /// sheet or screen closes.
+  Future<void> reload() async => emit(
+    state.copyWith(
+      tasks: await _api.tasksFor(state.activeTab!),
+      unread: await _unread(),
+    ),
+  );
+
+  Future<int> _unread() async =>
+      (await _api.notifications()).where((n) => n.unread).length;
 
   /// Tapping the selected day again clears the filter.
   void selectDay(DateTime day) {

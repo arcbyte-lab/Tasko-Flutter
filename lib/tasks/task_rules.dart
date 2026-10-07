@@ -159,3 +159,15 @@ String relativeTime(DateTime then, DateTime now) {
   if (d.inDays < 7) return '${d.inDays}d ago';
   return shortDate(then, now);
 }
+
+/// A notification's time: "5m ago" and "2h ago" today, then "yesterday",
+/// then the short date.
+String notificationTime(DateTime then, DateTime now) {
+  final days = dateOnly(now).difference(dateOnly(then)).inDays;
+  if (days == 0) {
+    final d = now.difference(then);
+    return d.inHours < 1 ? '${d.inMinutes}m ago' : '${d.inHours}h ago';
+  }
+  if (days == 1) return 'yesterday';
+  return shortDate(then, now);
+}

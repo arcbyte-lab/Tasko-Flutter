@@ -20,6 +20,7 @@ class HomeView extends StatelessWidget {
     required this.onToggleCompleted,
     required this.onTick,
     required this.onOpen,
+    required this.onNotifications,
     required this.onCreate,
   });
 
@@ -32,6 +33,7 @@ class HomeView extends StatelessWidget {
   final ValueChanged<Task> onTick;
   final VoidCallback onCreate;
   final ValueChanged<Task> onOpen;
+  final VoidCallback onNotifications;
 
   @override
   Widget build(BuildContext context) {
@@ -89,7 +91,11 @@ class HomeView extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
-            _TopBar(name: state.user!.name),
+            _TopBar(
+              name: state.user!.name,
+              unread: state.unread > 0,
+              onNotifications: onNotifications,
+            ),
             PulsePanel(
               month: state.month,
               today: state.today,
@@ -124,9 +130,15 @@ class HomeView extends StatelessWidget {
 // ponytail: the slider icon (meaning still open), the maximize, search and
 // view-options icons are left out until their screens are built.
 class _TopBar extends StatelessWidget {
-  const _TopBar({required this.name});
+  const _TopBar({
+    required this.name,
+    required this.unread,
+    required this.onNotifications,
+  });
 
   final String name;
+  final bool unread;
+  final VoidCallback onNotifications;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -147,12 +159,34 @@ class _TopBar extends StatelessWidget {
             ),
           ),
         ),
-        // ponytail: no unread dot until notifications come from the API.
-        const IconButton(
-          onPressed: null,
-          tooltip: 'Notifications',
-          icon: Icon(Icons.notifications_none, size: 20),
-          disabledColor: AppColors.mutedForeground,
+        IconButton(
+          onPressed: onNotifications,
+          tooltip: unread ? 'Notifications, unread' : 'Notifications',
+          icon: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              const Icon(
+                Icons.notifications_none,
+                size: 20,
+                color: AppColors.mutedForeground,
+              ),
+              if (unread)
+                // 6px red dot with a 1.5px white ring (hifi H1).
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  child: Container(
+                    width: 9,
+                    height: 9,
+                    decoration: BoxDecoration(
+                      color: AppColors.destructive,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 1.5),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
         CircleAvatar(
           radius: 12,
