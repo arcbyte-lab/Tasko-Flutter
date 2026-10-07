@@ -1,0 +1,38 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../home_cubit.dart';
+import '../task_rules.dart';
+import 'home_view.dart';
+
+/// Connects [HomeView] to [HomeCubit] and shows its snackbars.
+class HomePanel extends StatelessWidget {
+  const HomePanel({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final cubit = context.read<HomeCubit>();
+    void snack(String text) => ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(text)));
+
+    return BlocBuilder<HomeCubit, HomeState>(
+      builder: (context, state) => HomeView(
+        state: state,
+        onSelectTab: cubit.selectTab,
+        onDayTap: cubit.selectDay,
+        onClearDay: cubit.clearDay,
+        onMonthChange: cubit.changeMonth,
+        onToggleCompleted: cubit.toggleCompleted,
+        onTick: (task) async {
+          try {
+            await cubit.tick(task);
+          } on ProofRequired {
+            snack('Needs a proof — coming soon');
+          }
+        },
+        onCreate: () => snack('Create task — coming soon'),
+      ),
+    );
+  }
+}

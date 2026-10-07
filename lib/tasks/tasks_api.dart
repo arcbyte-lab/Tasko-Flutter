@@ -1,0 +1,130 @@
+import 'models.dart';
+
+/// What the app needs from the server. The only seam in the app: the fake
+/// below runs everything until the Laravel API lands.
+abstract interface class TasksApi {
+  Future<User> me();
+
+  /// `private`, then the user's divisions, then their projects.
+  Future<List<TaskTab>> myTabs();
+
+  /// A division tab holds only tasks with no project (arcbyte decision 0002).
+  Future<List<Task>> tasksFor(TaskTab tab);
+
+  /// The server sets completed_date / review_date alongside.
+  Future<Task> setStatus(Task task, TaskStatus status);
+}
+
+/// In-memory [TasksApi] seeded with the mockups' sample data, dated relative
+/// to [today] so "today" and "overdue" always look right.
+class FakeTasksApi implements TasksApi {
+  FakeTasksApi({required DateTime today, Map<TaskTab, List<Task>>? tasks})
+    : _tasks = tasks ?? _seed(DateTime(today.year, today.month, today.day));
+
+  final Map<TaskTab, List<Task>> _tasks;
+
+  static const tech = TaskTab(TabKind.division, 1, 'tech');
+  static const taskoApp = TaskTab(TabKind.project, 1, 'tasko-app');
+  static const taskoWeb = TaskTab(TabKind.project, 2, 'tasko-web');
+
+  @override
+  Future<User> me() async => const User(id: 1, name: 'Mira');
+
+  @override
+  Future<List<TaskTab>> myTabs() async => [
+    TaskTab.private,
+    tech,
+    taskoApp,
+    taskoWeb,
+  ];
+
+  @override
+  Future<List<Task>> tasksFor(TaskTab tab) async => [...?_tasks[tab]];
+
+  @override
+  Future<Task> setStatus(Task task, TaskStatus status) async {
+    final updated = task.copyWith(status: status);
+    for (final list in _tasks.values) {
+      final i = list.indexWhere(
+        (t) => t.id == task.id && t.personal == task.personal,
+      );
+      if (i != -1) list[i] = updated;
+    }
+    return updated;
+  }
+
+  static Map<TaskTab, List<Task>> _seed(DateTime today) {
+    DateTime day(int offset) => today.add(Duration(days: offset));
+    var id = 0;
+    Task t(
+      String name,
+      Priority priority,
+      TaskStatus status,
+      int? due, {
+      String? proof,
+    }) => Task(
+      id: ++id,
+      name: name,
+      priority: priority,
+      status: status,
+      dueDate: due == null ? null : day(due),
+      requiredProofType: proof,
+    );
+    Task p(String name, Priority priority, TaskStatus status, int? due) => Task(
+      id: ++id,
+      name: name,
+      priority: priority,
+      status: status,
+      dueDate: due == null ? null : day(due),
+      personal: true,
+    );
+
+    final (low, medium, high, urgent) = (
+      Priority.low,
+      Priority.medium,
+      Priority.high,
+      Priority.urgent,
+    );
+    final (waiting, inProgress, review, done, todo) = (
+      TaskStatus.waiting,
+      TaskStatus.inProgress,
+      TaskStatus.review,
+      TaskStatus.done,
+      TaskStatus.todo,
+    );
+
+    return {
+      TaskTab.private: [
+        p('Renew passport', high, todo, 2),
+        p('Book dentist', medium, inProgress, 0),
+        p('Pay internet bill', urgent, todo, -2),
+        p('Read Flutter release notes', low, todo, null),
+        p('Buy groceries', medium, done, -1),
+      ],
+      tech: [],
+      taskoApp: [
+        t('Set up CI', high, inProgress, 1),
+        t('Port theme tokens', medium, waiting, 3),
+        t('Draft API contract', medium, waiting, 3),
+        t('Pick an icon set', low, done, -3),
+      ],
+      taskoWeb: [
+        t('Fix login redirect', urgent, inProgress, -4),
+        t('Write onboarding copy', medium, waiting, 0),
+        t('Review PR #42', high, review, 0, proof: 'image'),
+        t('Deploy staging', high, waiting, 1),
+        t('Upload release screenshots', medium, waiting, 2, proof: 'image'),
+        t('Design empty state', low, waiting, 7),
+        t('Fix navbar on mobile', high, inProgress, 7),
+        t('QA checkout flow', medium, review, 7, proof: 'file'),
+        t('Write release notes', medium, waiting, 7),
+        t('Add 404 page', low, waiting, 7),
+        t('Update favicon', low, inProgress, 13),
+        t('Clean up old branches', low, waiting, null),
+        t('Set up analytics', medium, done, -2),
+        t('Fix footer links', low, done, -5),
+        t('Compress hero images', low, done, -6),
+      ],
+    };
+  }
+}
