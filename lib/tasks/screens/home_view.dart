@@ -5,6 +5,7 @@ import '../home_cubit.dart';
 import '../models.dart';
 import '../task_rules.dart';
 import '../widgets/pulse_panel.dart';
+import '../widgets/tab_pages.dart';
 import '../widgets/tab_strip.dart';
 import '../widgets/task_row.dart';
 
@@ -49,64 +50,68 @@ class HomeView extends StatelessWidget {
   final VoidCallback onAccountSettings;
   final VoidCallback onLogOut;
 
+  /// One tab's list, from [page] (the state as that tab shows it).
+  Widget _page(HomeState page) {
+    final listed = page.listed;
+    final completed = page.completed;
+    final day = page.selectedDay;
+
+    Widget row(Task t) => TaskRow(
+      task: t,
+      now: page.today,
+      onTick: () => onTick(t),
+      onTap: () => onOpen(t),
+    );
+
+    return ListView(
+      // Each tab keeps its own scroll position across swipes.
+      key: PageStorageKey(page.activeTab),
+      children: [
+        if (day != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: _DayChip(
+                label: shortDate(day, page.today),
+                onClear: onClearDay,
+              ),
+            ),
+          ),
+        if (listed.isEmpty && completed.isEmpty)
+          const _EmptyState()
+        else
+          for (final s in page.sections) ...[
+            if (s.label != null) _GroupHeader(s.label!, alert: s.alert),
+            ...s.tasks.map(row),
+          ],
+        if (completed.isNotEmpty) ...[
+          _CompletedRow(
+            count: completed.length,
+            open: page.showCompleted,
+            onTap: onToggleCompleted,
+          ),
+          if (page.showCompleted) ...completed.map(row),
+        ],
+        const SizedBox(height: 88), // room to scroll past the FAB
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (state.loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    final listed = state.listed;
-    final completed = state.completed;
-    final day = state.selectedDay;
-
-    Widget row(Task t) => TaskRow(
-      task: t,
-      now: state.today,
-      onTick: () => onTick(t),
-      onTap: () => onOpen(t),
-    );
-
-    final items = <Widget>[
-      if (state.searching)
-        _SearchField(
-          key: const ValueKey('search'),
-          onChanged: onSearch,
-          onClose: onStopSearch,
-        )
-      else
-        _Toolbar(
-          count: listed.length,
-          customised: !state.view.isDefault,
-          onSearch: onStartSearch,
-          onViewOptions: onViewOptions,
-        ),
-      if (day != null)
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: _DayChip(
-              label: shortDate(day, state.today),
-              onClear: onClearDay,
-            ),
-          ),
-        ),
-      if (listed.isEmpty && completed.isEmpty)
-        const _EmptyState()
-      else
-        for (final s in state.sections) ...[
-          if (s.label != null) _GroupHeader(s.label!, alert: s.alert),
-          ...s.tasks.map(row),
-        ],
-      if (completed.isNotEmpty) ...[
-        _CompletedRow(
-          count: completed.length,
-          open: state.showCompleted,
-          onTap: onToggleCompleted,
-        ),
-        if (state.showCompleted) ...completed.map(row),
-      ],
-      const SizedBox(height: 88), // room to scroll past the FAB
-    ];
+    // Pinned above the pages, so it stays put while they slide or scroll.
+    final Widget toolbar = state.searching
+        ? _SearchField(onChanged: onSearch, onClose: onStopSearch)
+        : _Toolbar(
+            count: state.listed.length,
+            customised: !state.view.isDefault,
+            onSearch: onStartSearch,
+            onViewOptions: onViewOptions,
+          );
 
     return Scaffold(
       body: SafeArea(
@@ -129,19 +134,32 @@ class HomeView extends StatelessWidget {
                 today: state.today,
                 counts: state.dueCountsThisMonth,
                 overdueDays: state.overdueDays,
-                selectedDay: day,
+                selectedDay: state.selectedDay,
                 onDayTap: onDayTap,
                 onMonthChange: onMonthChange,
               ),
             ),
             // The full-screen calendar hides the tabs and the list.
             if (!state.calendarExpanded) ...[
-              TabStrip(
-                tabs: state.tabs,
-                active: state.activeTab,
-                onSelect: onSelectTab,
+              Expanded(
+                child: TabPages(
+                  tabs: state.tabs,
+                  active: state.activeTab!,
+                  onPageChanged: onSelectTab,
+                  pageBuilder: (tab) => _page(state.pageFor(tab)),
+                  header: (position) => Column(
+                    children: [
+                      TabStrip(
+                        tabs: state.tabs,
+                        active: state.activeTab,
+                        position: position,
+                        onSelect: onSelectTab,
+                      ),
+                      toolbar,
+                    ],
+                  ),
+                ),
               ),
-              Expanded(child: ListView(children: items)),
             ],
           ],
         ),
@@ -375,11 +393,7 @@ class _Toolbar extends StatelessWidget {
 }
 
 class _SearchField extends StatelessWidget {
-  const _SearchField({
-    super.key,
-    required this.onChanged,
-    required this.onClose,
-  });
+  const _SearchField({required this.onChanged, required this.onClose});
 
   final ValueChanged<String> onChanged;
   final VoidCallback onClose;

@@ -5,6 +5,7 @@ import 'package:tasko/core/theme/app_theme.dart';
 import 'package:tasko/tasks/home_cubit.dart';
 import 'package:tasko/tasks/screens/home_panel.dart';
 import 'package:tasko/tasks/tasks_api.dart';
+import 'package:tasko/tasks/widgets/tab_strip.dart';
 import 'package:tasko/tasks/widgets/task_row.dart';
 
 void main() {
@@ -130,5 +131,116 @@ void main() {
     await tester.pump();
     expect(find.text('action: log out'), findsOneWidget);
     await tester.pump(const Duration(seconds: 3));
+  });
+
+  group('swiping the list', () {
+    Future<void> fling(WidgetTester tester, double dx) async {
+      await tester.fling(find.byType(ListView), Offset(dx, 0), 1000);
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> startOn(WidgetTester tester, String tab) =>
+        pump(tester, tab: tab);
+
+    testWidgets('left opens the next tab, right the previous', (tester) async {
+      await startOn(tester, 'tech');
+      await fling(tester, -300);
+      expect(find.text('Set up CI'), findsOneWidget); // tasko-app
+      await fling(tester, 300);
+      expect(find.text('no tasks here'), findsOneWidget); // tech again
+    });
+
+    testWidgets('stops at both ends', (tester) async {
+      await startOn(tester, 'private');
+      await fling(tester, 300);
+      expect(find.text('Renew passport'), findsOneWidget);
+
+      await fling(tester, -300); // tech
+      await fling(tester, -300); // tasko-app
+      await fling(tester, -300); // tasko-web, the last
+      await fling(tester, -300);
+      expect(find.text('Fix login redirect'), findsOneWidget);
+    });
+
+    testWidgets('the toolbar stays put while the list slides', (tester) async {
+      await startOn(tester, 'tech');
+      await tester.fling(find.byType(ListView), const Offset(-300, 0), 1000);
+      await tester.pump(const Duration(milliseconds: 100)); // mid-slide
+      expect(find.byType(ListView), findsNWidgets(2)); // both lists moving
+      expect(find.byTooltip('Search'), findsOneWidget);
+      expect(find.byTooltip('View options'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(ListView),
+          matching: find.byTooltip('Search'),
+        ),
+        findsNothing,
+      );
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('the next tab follows the finger during a drag', (
+      tester,
+    ) async {
+      await startOn(tester, 'tech');
+      final g = await tester.startGesture(
+        tester.getCenter(find.byType(ListView)),
+      );
+      await g.moveBy(const Offset(-40, 0)); // past the drag slop
+      await g.moveBy(const Offset(-100, 0));
+      await tester.pump();
+      expect(find.byType(ListView), findsNWidgets(2)); // tasko-app peeks in
+      expect(find.text('Set up CI'), findsOneWidget);
+      await g.up(); // a short, slow drag snaps back
+      await tester.pumpAndSettle();
+      expect(find.text('no tasks here'), findsOneWidget);
+      expect(find.text('Set up CI'), findsNothing);
+    });
+
+    /// The tab strip's primary underline, as painted.
+    Rect underline() {
+      Rect? found;
+      expect(
+        find.byType(TabStrip),
+        paints..something((method, args) {
+          if (method != #drawRect) return false;
+          // Compared as ARGB: Paint hands back a rebuilt, float-based Color.
+          final color = (args[1] as Paint).color.toARGB32();
+          if (color != AppColors.primary.toARGB32()) return false;
+          found = args[0] as Rect;
+          return true;
+        }),
+      );
+      return found!;
+    }
+
+    testWidgets('the underline moves with the pages', (tester) async {
+      await startOn(tester, 'tech');
+      final atTech = underline(); // painted from the first frame on
+
+      final g = await tester.startGesture(
+        tester.getCenter(find.byType(ListView)),
+      );
+      await g.moveBy(const Offset(-40, 0));
+      await g.moveBy(const Offset(-60, 0));
+      await tester.pump();
+      final midway = underline();
+
+      await g.moveBy(const Offset(-200, 0));
+      await g.up();
+      await tester.pumpAndSettle();
+      final atApp = underline();
+
+      expect(midway.left, greaterThan(atTech.left));
+      expect(midway.left, lessThan(atApp.left));
+      expect(midway.width, inExclusiveRange(atTech.width, atApp.width));
+    });
+
+    testWidgets('a slow drag does not switch', (tester) async {
+      await startOn(tester, 'tech');
+      await tester.drag(find.byType(ListView), const Offset(-120, 0));
+      await tester.pumpAndSettle();
+      expect(find.text('no tasks here'), findsOneWidget);
+    });
   });
 }

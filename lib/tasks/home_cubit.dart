@@ -12,13 +12,13 @@ class HomeState {
     this.user,
     this.tabs = const [],
     this.activeTab,
-    this.tasks = const [],
+    this.tasksByTab = const {},
     this.selectedDay,
     this.showCompleted = false,
     this.unread = 0,
     this.view = ViewOptions.defaults,
     this.query,
-    this.members = const [],
+    this.membersByTab = const {},
     this.calendarExpanded = false,
   });
 
@@ -31,8 +31,12 @@ class HomeState {
   final List<TaskTab> tabs;
   final TaskTab? activeTab;
 
+  /// Every tab's tasks, unfiltered, so the pages beside the current one are
+  /// ready while a swipe drags them into view.
+  final Map<TaskTab, List<Task>> tasksByTab;
+
   /// Every task in [activeTab], unfiltered.
-  final List<Task> tasks;
+  List<Task> get tasks => tasksByTab[activeTab] ?? const [];
   final DateTime? selectedDay;
   final bool showCompleted;
 
@@ -45,8 +49,10 @@ class HomeState {
   /// Non-null while searching ("" before anything is typed).
   final String? query;
 
-  /// The active tab's members, for assignee names. Empty in `private`.
-  final List<Member> members;
+  /// Each tab's members, for assignee names. Empty for `private`.
+  final Map<TaskTab, List<Member>> membersByTab;
+
+  List<Member> get members => membersByTab[activeTab] ?? const [];
 
   /// The calendar fills the screen; tabs and list are hidden.
   final bool calendarExpanded;
@@ -81,6 +87,17 @@ class HomeState {
           },
         );
 
+  /// This state as the page for [tab] shows it: what [HomeCubit.selectTab]
+  /// will produce once that page settles.
+  HomeState pageFor(TaskTab tab) => tab == activeTab
+      ? this
+      : copyWith(
+          activeTab: tab,
+          selectedDay: () => null,
+          showCompleted: false,
+          view: view.withoutFilters(),
+        );
+
   Map<int, int> get dueCountsThisMonth => dueCounts(tasks, month);
 
   /// Days of [month] that have an overdue task, for the dot under the cell.
@@ -97,13 +114,13 @@ class HomeState {
     User? user,
     List<TaskTab>? tabs,
     TaskTab? activeTab,
-    List<Task>? tasks,
+    Map<TaskTab, List<Task>>? tasksByTab,
     DateTime? Function()? selectedDay,
     bool? showCompleted,
     int? unread,
     ViewOptions? view,
     String? Function()? query,
-    List<Member>? members,
+    Map<TaskTab, List<Member>>? membersByTab,
     bool? calendarExpanded,
   }) => HomeState(
     today: today,
@@ -111,13 +128,13 @@ class HomeState {
     user: user ?? this.user,
     tabs: tabs ?? this.tabs,
     activeTab: activeTab ?? this.activeTab,
-    tasks: tasks ?? this.tasks,
+    tasksByTab: tasksByTab ?? this.tasksByTab,
     selectedDay: selectedDay != null ? selectedDay() : this.selectedDay,
     showCompleted: showCompleted ?? this.showCompleted,
     unread: unread ?? this.unread,
     view: view ?? this.view,
     query: query != null ? query() : this.query,
-    members: members ?? this.members,
+    membersByTab: membersByTab ?? this.membersByTab,
     calendarExpanded: calendarExpanded ?? this.calendarExpanded,
   );
 }
@@ -131,45 +148,44 @@ class HomeCubit extends Cubit<HomeState> {
   static HomeState _initial(DateTime now) =>
       HomeState(today: dateOnly(now), month: DateTime(now.year, now.month));
 
+  /// Loads every tab at once, so a swipe never waits on the network.
+  // ponytail: one request per tab on load; fine for a handful of tabs, page
+  // them in lazily if users end up in dozens of projects.
   Future<void> load() async {
     final user = await _api.me();
     final tabs = await _api.myTabs();
-    final tab = tabs.first;
+    final tasks = await Future.wait(tabs.map(_api.tasksFor));
+    final members = await Future.wait(tabs.map(_api.membersOf));
     emit(
       state.copyWith(
         user: user,
         tabs: tabs,
-        activeTab: tab,
-        tasks: await _api.tasksFor(tab),
+        activeTab: tabs.first,
+        tasksByTab: Map.fromIterables(tabs, tasks),
+        membersByTab: Map.fromIterables(tabs, members),
         unread: await _unread(),
-        members: await _api.membersOf(tab),
       ),
     );
   }
 
+  /// Switches at once from what is loaded, then refreshes that tab.
   Future<void> selectTab(TaskTab tab) async {
     if (tab == state.activeTab) return;
-    final tasks = await _api.tasksFor(tab);
-    emit(
-      state.copyWith(
-        activeTab: tab,
-        tasks: tasks,
-        members: await _api.membersOf(tab),
-        selectedDay: () => null,
-        showCompleted: false,
-        view: state.view.withoutFilters(),
-      ),
-    );
+    emit(state.pageFor(tab));
+    await _refresh(tab);
   }
 
   /// Fetches the active tab's tasks and the unread count again, after a
   /// sheet or screen closes.
-  Future<void> reload() async => emit(
-    state.copyWith(
-      tasks: await _api.tasksFor(state.activeTab!),
-      unread: await _unread(),
-    ),
-  );
+  Future<void> reload() async {
+    await _refresh(state.activeTab!);
+    emit(state.copyWith(unread: await _unread()));
+  }
+
+  Future<void> _refresh(TaskTab tab) async {
+    final tasks = await _api.tasksFor(tab);
+    emit(state.copyWith(tasksByTab: {...state.tasksByTab, tab: tasks}));
+  }
 
   Future<int> _unread() async =>
       (await _api.notifications()).where((n) => n.unread).length;
@@ -214,10 +230,15 @@ class HomeCubit extends Cubit<HomeState> {
     final updated = await _api.setStatus(task, next);
     emit(
       state.copyWith(
-        tasks: [
-          for (final t in state.tasks)
-            t.id == updated.id && t.personal == updated.personal ? updated : t,
-        ],
+        tasksByTab: {
+          ...state.tasksByTab,
+          state.activeTab!: [
+            for (final t in state.tasks)
+              t.id == updated.id && t.personal == updated.personal
+                  ? updated
+                  : t,
+          ],
+        },
       ),
     );
   }
