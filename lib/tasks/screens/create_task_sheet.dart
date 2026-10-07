@@ -20,6 +20,8 @@ Future<Task?> showCreateTaskSheet(
 }) => showModalBottomSheet<Task>(
   context: context,
   isScrollControlled: true,
+  // Keeps a tall sheet (keyboard up) clear of the status bar.
+  useSafeArea: true,
   showDragHandle: true,
   backgroundColor: AppColors.background,
   shape: const RoundedRectangleBorder(

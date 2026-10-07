@@ -23,6 +23,8 @@ Future<void> showTaskDetailSheet(
   await showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
+    // Keeps a tall sheet (keyboard up) clear of the status bar.
+    useSafeArea: true,
     backgroundColor: Colors.transparent,
     elevation: 0,
     builder: (_) => BlocProvider.value(
@@ -298,7 +300,7 @@ class TaskDetailView extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.fromLTRB(
         8,
-        media.padding.top + 8,
+        8,
         8,
         12 + media.viewInsets.bottom + media.padding.bottom,
       ),
