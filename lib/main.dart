@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:http/http.dart' show ClientException;
 
 import 'auth/login_screen.dart';
 import 'core/theme/app_theme.dart';
@@ -15,15 +16,27 @@ import 'tasks/tasks_api.dart';
 final _navigator = GlobalKey<NavigatorState>();
 
 void main() {
-  // A refused change (409, 422, …) that no screen handles shows the server's
-  // message instead of failing silently.
   PlatformDispatcher.instance.onError = (error, stack) {
-    final context = _navigator.currentContext;
-    if (error is! ApiException || context == null) return false;
-    if (error.status != 401) showToast(context, error.message);
-    return true;
+    debugPrint('$error\n$stack');
+    return toastError(_navigator.currentState?.overlay, error);
   };
   runApp(const TaskoApp());
+}
+
+/// Shows an error no screen handled, so nothing fails silently: the
+/// server's message for a refused change (409, 422, …), "can't reach the
+/// server" offline. A 401 shows nothing; the app is already back at login.
+/// False when there is nowhere to show it yet.
+bool toastError(OverlayState? overlay, Object error) {
+  if (overlay == null) return false;
+  final text = switch (error) {
+    ApiException(status: 401) => null,
+    ApiException(:final message) => message,
+    ClientException() => "Can't reach the server",
+    _ => 'Something went wrong',
+  };
+  if (text != null) showToastOn(overlay, text);
+  return true;
 }
 
 /// Login, or home once a token is stored.

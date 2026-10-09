@@ -6,8 +6,11 @@ import 'theme/app_theme.dart';
 
 /// A snackbar-looking message drawn above every route. A SnackBar from inside
 /// a modal sheet lands on the Scaffold beneath the sheet, out of sight.
-void showToast(BuildContext context, String text) {
-  final overlay = Overlay.of(context, rootOverlay: true);
+void showToast(BuildContext context, String text) =>
+    showToastOn(Overlay.of(context, rootOverlay: true), text);
+
+/// [showToast] on [overlay], for code with no context below it.
+void showToastOn(OverlayState overlay, String text) {
   late final OverlayEntry entry;
   entry = OverlayEntry(
     builder: (context) => Positioned(
