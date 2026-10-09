@@ -12,7 +12,7 @@ enum TaskStatus {
   final String label;
 }
 
-/// `priority_level`, 1..4, as the Laravel app's TaskPriority enum.
+/// `priority_level`, 1..4.
 enum Priority {
   low,
   medium,
@@ -20,6 +20,8 @@ enum Priority {
   urgent;
 
   static Priority fromLevel(int level) => values[level.clamp(1, 4) - 1];
+
+  int get level => index + 1;
 }
 
 /// One row in the list: a `tasks` row, or a `personal_tasks` row when
@@ -112,13 +114,22 @@ class TaskTab {
 }
 
 class User {
-  const User({required this.id, required this.name, this.email});
+  const User({
+    required this.id,
+    required this.name,
+    this.email,
+    this.mustChangePassword = false,
+  });
 
   final int id;
   final String name;
 
   /// `users.email`. Only loaded for the viewer.
   final String? email;
+
+  /// Only loaded for the viewer. Not enforced until the server has a
+  /// change-password route (arcbyte decision 0007).
+  final bool mustChangePassword;
 }
 
 /// Someone who can be assigned a task in a tab: `project_members.role` or
@@ -143,6 +154,20 @@ class Comment {
   final DateTime createdAt;
 }
 
+/// A `proofs` row: a link sent with the tick to review (arcbyte decision
+/// 0007).
+class Proof {
+  const Proof({
+    required this.url,
+    required this.author,
+    required this.createdAt,
+  });
+
+  final String url;
+  final User author;
+  final DateTime createdAt;
+}
+
 /// What Task Detail shows beyond the row. The server decides the `can*`
 /// flags from roles (arcbyte decision 0004), so the app does not repeat
 /// those rules.
@@ -152,6 +177,7 @@ class TaskDetail {
     this.subtasks = const [],
     this.comments = const [],
     this.assignee,
+    this.proof,
     this.canReview = false,
     this.canArchive = false,
     this.canRequestExtension = false,
@@ -162,6 +188,9 @@ class TaskDetail {
   final List<Task> subtasks;
   final List<Comment> comments;
   final User? assignee;
+
+  /// The latest proof; an earlier one stays on the server after a rejection.
+  final Proof? proof;
 
   /// The viewer is the project's person-in-charge or author, or the
   /// division's admin or supervisor.
@@ -174,7 +203,7 @@ class TaskDetail {
   final bool canRequestExtension;
 }
 
-/// A Laravel `notifications` row, with its text already written by the
+/// A `notifications` row, with its text already written by the
 /// server from `type` and `data`.
 class AppNotification {
   const AppNotification({
