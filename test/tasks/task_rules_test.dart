@@ -99,6 +99,16 @@ void main() {
         throwsA(isA<ProofRequired>()),
       );
     });
+
+    test('proof required, with a link: review', () {
+      expect(
+        statusAfterTick(
+          task(TaskStatus.waiting, proof: 'image'),
+          proofUrl: 'https://example.com/shot.png',
+        ),
+        TaskStatus.review,
+      );
+    });
   });
 
   test('short date', () {

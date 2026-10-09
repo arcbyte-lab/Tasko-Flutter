@@ -223,11 +223,11 @@ class HomeCubit extends Cubit<HomeState> {
   void toggleCompleted() =>
       emit(state.copyWith(showCompleted: !state.showCompleted));
 
-  /// Throws [ProofRequired] when the task can't be ticked yet.
-  Future<void> tick(Task task) async {
-    final next = statusAfterTick(task);
+  /// Throws [ProofRequired] when the task needs [proofUrl] to be ticked.
+  Future<void> tick(Task task, {String? proofUrl}) async {
+    final next = statusAfterTick(task, proofUrl: proofUrl);
     if (next == null) return;
-    final updated = await _api.setStatus(task, next);
+    final updated = await _api.setStatus(task, next, proofUrl: proofUrl);
     emit(
       state.copyWith(
         tasksByTab: {

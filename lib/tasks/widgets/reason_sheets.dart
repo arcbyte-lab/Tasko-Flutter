@@ -15,9 +15,14 @@ Future<(DateTime, String)?> showExtensionSheet(
   _ExtensionSheet(currentDue: currentDue, today: today),
 );
 
-/// "decline": a required reason. Resolves to it, or null when dismissed.
-Future<String?> showDeclineSheet(BuildContext context) =>
-    showPicker<String>(context, const _DeclineSheet());
+/// "reject": a required reason. Resolves to it, or null when dismissed.
+Future<String?> showRejectSheet(BuildContext context) =>
+    showPicker<String>(context, const _RejectSheet());
+
+/// "submit proof": a required http(s) link (arcbyte decision 0007). Resolves
+/// to it, or null when dismissed.
+Future<String?> showProofSheet(BuildContext context) =>
+    showPicker<String>(context, const _ProofSheet());
 
 class _ExtensionSheet extends StatefulWidget {
   const _ExtensionSheet({required this.currentDue, required this.today});
@@ -70,20 +75,20 @@ class _ExtensionSheetState extends State<_ExtensionSheet> {
   }
 }
 
-class _DeclineSheet extends StatefulWidget {
-  const _DeclineSheet();
+class _RejectSheet extends StatefulWidget {
+  const _RejectSheet();
 
   @override
-  State<_DeclineSheet> createState() => _DeclineSheetState();
+  State<_RejectSheet> createState() => _RejectSheetState();
 }
 
-class _DeclineSheetState extends State<_DeclineSheet> {
+class _RejectSheetState extends State<_RejectSheet> {
   String _reason = '';
 
   @override
   Widget build(BuildContext context) => _ReasonFrame(
-    title: 'decline',
-    button: 'decline',
+    title: 'reject',
+    button: 'reject',
     destructive: true,
     onReason: (v) => setState(() => _reason = v),
     onSubmit: _reason.trim().isEmpty
@@ -92,7 +97,37 @@ class _DeclineSheetState extends State<_DeclineSheet> {
   );
 }
 
-/// Title, optional rows, a required "reason" field, then one full-width button.
+class _ProofSheet extends StatefulWidget {
+  const _ProofSheet();
+
+  @override
+  State<_ProofSheet> createState() => _ProofSheetState();
+}
+
+class _ProofSheetState extends State<_ProofSheet> {
+  String _link = '';
+
+  bool get _valid {
+    final uri = Uri.tryParse(_link.trim());
+    return uri != null &&
+        (uri.scheme == 'https' || uri.scheme == 'http') &&
+        uri.host.isNotEmpty;
+  }
+
+  @override
+  Widget build(BuildContext context) => _ReasonFrame(
+    title: 'submit proof',
+    button: 'send for review',
+    field: 'link',
+    lines: 1,
+    destructive: false,
+    onReason: (v) => setState(() => _link = v),
+    onSubmit: _valid ? () => Navigator.pop(context, _link.trim()) : null,
+  );
+}
+
+/// Title, optional rows, a required [field] ("reason"), then one full-width
+/// button.
 class _ReasonFrame extends StatelessWidget {
   const _ReasonFrame({
     required this.title,
@@ -101,10 +136,14 @@ class _ReasonFrame extends StatelessWidget {
     required this.onReason,
     required this.onSubmit,
     this.above = const [],
+    this.field = 'reason',
+    this.lines = 3,
   });
 
   final String title;
   final String button;
+  final String field;
+  final int lines;
   final bool destructive;
   final ValueChanged<String> onReason;
   final VoidCallback? onSubmit;
@@ -135,17 +174,17 @@ class _ReasonFrame extends StatelessWidget {
             const SizedBox(height: 12),
             ...above,
             const SizedBox(height: 12),
-            const Text.rich(
+            Text.rich(
               TextSpan(
-                text: 'reason ',
-                children: [
+                text: '$field ',
+                children: const [
                   TextSpan(
                     text: 'required',
                     style: TextStyle(color: AppColors.destructive),
                   ),
                 ],
               ),
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
                 color: AppColors.mutedForeground,
@@ -155,8 +194,9 @@ class _ReasonFrame extends StatelessWidget {
             TextField(
               autofocus: above.isEmpty,
               onChanged: onReason,
-              minLines: 3,
-              maxLines: 5,
+              minLines: lines,
+              maxLines: lines == 1 ? 1 : 5,
+              keyboardType: lines == 1 ? TextInputType.url : null,
               style: const TextStyle(fontSize: 15),
               decoration: InputDecoration(
                 border: border,

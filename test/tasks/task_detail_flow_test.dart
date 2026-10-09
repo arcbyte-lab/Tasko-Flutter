@@ -23,7 +23,7 @@ void main() {
           value: api,
           child: BlocProvider(
             create: (_) => HomeCubit(api, now: () => now)..load(),
-            child: const HomePanel(),
+            child: HomePanel(onLogOut: () {}),
           ),
         ),
       ),
@@ -71,9 +71,23 @@ void main() {
     );
 
     await tester.tap(button('submit proof'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<FilledButton>(button('send for review')).onPressed,
+      isNull,
+    );
+    await tester.enterText(find.byType(TextField).last, 'not a link');
     await tester.pump();
-    expect(find.text('action: submit proof'), findsOneWidget);
-    await tester.pump(const Duration(seconds: 3));
+    expect(
+      tester.widget<FilledButton>(button('send for review')).onPressed,
+      isNull,
+    );
+    await tester.enterText(find.byType(TextField).last, 'https://x.dev/a.png');
+    await tester.pump();
+    await tester.tap(button('send for review'));
+    await tester.pumpAndSettle();
+    expect(find.text('https://x.dev/a.png'), findsOneWidget);
+    expect(find.text('approve'), findsOneWidget); // Mira reviews tasko-web
   });
 
   testWidgets('a personal task: no team rows; start, then done', (
@@ -92,17 +106,17 @@ void main() {
     expect(find.textContaining('done · '), findsOneWidget);
   });
 
-  testWidgets('a reviewer declines with a reason', (tester) async {
+  testWidgets('a reviewer rejects with a reason', (tester) async {
     await open(tester, 'tasko-web', 'Review PR #42');
-    await tester.tap(button('decline'));
+    await tester.tap(button('reject'));
     await tester.pumpAndSettle();
     expect(
-      tester.widget<FilledButton>(button('decline').last).onPressed,
+      tester.widget<FilledButton>(button('reject').last).onPressed,
       isNull,
     );
     await tester.enterText(find.byType(TextField).last, 'Tests are missing');
     await tester.pump();
-    await tester.tap(button('decline').last);
+    await tester.tap(button('reject').last);
     await tester.pumpAndSettle();
     expect(api.reviews.single.$3, 'Tests are missing');
     expect(find.text('approve'), findsNothing); // back in progress

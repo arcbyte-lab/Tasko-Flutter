@@ -77,14 +77,14 @@ void main() {
     expect(c.state.action, DetailAction.done);
   });
 
-  test('a reviewer approves or declines with a reason', () async {
+  test('a reviewer approves or rejects with a reason', () async {
     final qa = await open(FakeTasksApi.taskoWeb, 'QA checkout flow');
     expect(qa.state.action, DetailAction.review);
     await qa.approve();
     expect(qa.state.task.status, TaskStatus.done);
 
     final pr = await open(FakeTasksApi.taskoWeb, 'Review PR #42');
-    await pr.decline('Tests are missing');
+    await pr.reject('Tests are missing');
     expect(pr.state.task.status, TaskStatus.inProgress);
     expect(api.reviews, [
       (qa.state.task.id, true, null),

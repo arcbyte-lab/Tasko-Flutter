@@ -1,7 +1,7 @@
 import 'models.dart';
 
-/// What the app needs from the server. The only seam in the app: the fake
-/// below runs everything until the Laravel API lands.
+/// What the app needs from the server. The only seam in the app:
+/// [HttpTasksApi] talks to Tasko-API; the fake below runs the tests.
 abstract interface class TasksApi {
   Future<User> me();
 
@@ -12,8 +12,9 @@ abstract interface class TasksApi {
   /// (arcbyte decision 0002).
   Future<List<Task>> tasksFor(TaskTab tab);
 
-  /// The server sets completed_date / review_date alongside.
-  Future<Task> setStatus(Task task, TaskStatus status);
+  /// The server sets completed_date / review_date alongside. Moving to
+  /// review needs [proofUrl] (arcbyte decision 0007).
+  Future<Task> setStatus(Task task, TaskStatus status, {String? proofUrl});
 
   /// Who a task in [tab] can be assigned to, the current user first.
   Future<List<Member>> membersOf(TaskTab tab);
@@ -39,7 +40,7 @@ abstract interface class TasksApi {
 
   Future<Comment> addComment(Task task, String body);
 
-  /// A `task_reviews` row: approve → done, decline → in progress.
+  /// A `task_reviews` row: approve → done, reject → in progress.
   Future<Task> review(Task task, {required bool approve, String? reason});
 
   /// A `task_deadline_requests` row.
@@ -69,6 +70,7 @@ class FakeTasksApi implements TasksApi {
   final _comments = <int, List<Comment>>{};
   final _creatorOf = <int, int>{};
   final _notifications = <AppNotification>[];
+  final _proofs = <int, Proof>{};
 
   /// What was sent, for tests to check.
   final reviews = <(int taskId, bool approve, String? reason)>[];
@@ -100,12 +102,25 @@ class FakeTasksApi implements TasksApi {
   ];
 
   @override
-  Future<Task> setStatus(Task task, TaskStatus status) async => _replace(
-    task.copyWith(
-      status: status,
-      completedAt: () => status == TaskStatus.done ? DateTime.now() : null,
-    ),
-  );
+  Future<Task> setStatus(
+    Task task,
+    TaskStatus status, {
+    String? proofUrl,
+  }) async {
+    if (proofUrl != null) {
+      _proofs[task.id] = Proof(
+        url: proofUrl,
+        author: _me,
+        createdAt: DateTime.now(),
+      );
+    }
+    return _replace(
+      task.copyWith(
+        status: status,
+        completedAt: () => status == TaskStatus.done ? DateTime.now() : null,
+      ),
+    );
+  }
 
   @override
   Future<List<Member>> membersOf(TaskTab tab) async {
@@ -169,6 +184,7 @@ class FakeTasksApi implements TasksApi {
       ],
       comments: [...?_comments[task.id]],
       assignee: assignee,
+      proof: team ? _proofs[task.id] : null,
       canReview: team && tab == taskoWeb,
       canArchive: team && _creatorOf[task.id] == _me.id,
       canRequestExtension: team && tab != taskoWeb && task.assigneeId == _me.id,

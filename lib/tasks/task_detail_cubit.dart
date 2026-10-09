@@ -91,15 +91,25 @@ class TaskDetailCubit extends Cubit<TaskDetailState> {
 
   Future<void> markDone() => _status(TaskStatus.done);
 
-  Future<void> _status(TaskStatus s) async {
-    emit(state.copyWith(task: await _api.setStatus(state.task, s)));
+  Future<void> _status(TaskStatus s, {String? proofUrl}) async {
+    emit(
+      state.copyWith(
+        task: await _api.setStatus(state.task, s, proofUrl: proofUrl),
+      ),
+    );
+  }
+
+  /// Sends the task to review with a proof link (arcbyte decision 0007).
+  Future<void> submitProof(String url) async {
+    await _status(TaskStatus.review, proofUrl: url);
+    await load(); // shows the proof
   }
 
   Future<void> approve() async {
     emit(state.copyWith(task: await _api.review(state.task, approve: true)));
   }
 
-  Future<void> decline(String reason) async {
+  Future<void> reject(String reason) async {
     emit(
       state.copyWith(
         task: await _api.review(state.task, approve: false, reason: reason),
@@ -111,10 +121,10 @@ class TaskDetailCubit extends Cubit<TaskDetailState> {
       _api.requestExtension(state.task, newDue, reason);
 
   /// Throws [ProofRequired] like the list's checkbox.
-  Future<void> tickSubtask(Task sub) async {
-    final next = statusAfterTick(sub);
+  Future<void> tickSubtask(Task sub, {String? proofUrl}) async {
+    final next = statusAfterTick(sub, proofUrl: proofUrl);
     if (next == null) return;
-    await _api.setStatus(sub, next);
+    await _api.setStatus(sub, next, proofUrl: proofUrl);
     await load();
   }
 

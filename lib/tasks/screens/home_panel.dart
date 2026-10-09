@@ -5,6 +5,7 @@ import '../../core/toast.dart';
 import '../../notifications/notifications_screen.dart';
 import '../home_cubit.dart';
 import '../models.dart';
+import '../widgets/reason_sheets.dart';
 import '../widgets/view_options_sheet.dart';
 import '../task_rules.dart';
 import '../tasks_api.dart';
@@ -14,15 +15,13 @@ import 'task_detail_sheet.dart';
 
 /// Connects [HomeView] to [HomeCubit] and shows its snackbars.
 class HomePanel extends StatelessWidget {
-  const HomePanel({super.key});
+  const HomePanel({super.key, required this.onLogOut});
+
+  final VoidCallback onLogOut;
 
   @override
   Widget build(BuildContext context) {
     final cubit = context.read<HomeCubit>();
-    void snack(String text) => ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(text)));
-
     return BlocBuilder<HomeCubit, HomeState>(
       builder: (context, state) => HomeView(
         state: state,
@@ -35,7 +34,9 @@ class HomePanel extends StatelessWidget {
           try {
             await cubit.tick(task);
           } on ProofRequired {
-            snack('Needs a proof — coming soon');
+            if (!context.mounted) return;
+            final link = await showProofSheet(context);
+            if (link != null) await cubit.tick(task, proofUrl: link);
           }
         },
         onCreate: () async {
@@ -48,9 +49,9 @@ class HomePanel extends StatelessWidget {
           if (task != null) await cubit.reload();
         },
         onToggleCalendar: cubit.toggleCalendar,
-        // No account screen or sign-in exists yet (arcbyte lofi T12 pattern).
+        // No account screen exists yet (arcbyte lofi T12 pattern).
         onAccountSettings: () => showToast(context, 'action: account settings'),
-        onLogOut: () => showToast(context, 'action: log out'),
+        onLogOut: onLogOut,
         onStartSearch: cubit.startSearch,
         onSearch: cubit.search,
         onStopSearch: cubit.stopSearch,

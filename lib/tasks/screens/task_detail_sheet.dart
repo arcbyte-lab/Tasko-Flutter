@@ -89,20 +89,23 @@ class _TaskDetailPanel extends StatelessWidget {
             try {
               await cubit.tickSubtask(sub);
             } on ProofRequired {
-              if (context.mounted) {
-                showToast(context, 'action: submit proof');
-              }
+              if (!context.mounted) return;
+              final link = await showProofSheet(context);
+              if (link != null) await cubit.tickSubtask(sub, proofUrl: link);
             }
           },
           onAddSubtask: cubit.addSubtask,
           onComment: cubit.addComment,
           onStartWorking: cubit.startWorking,
           onMarkDone: cubit.markDone,
-          onSubmitProof: () => showToast(context, 'action: submit proof'),
+          onSubmitProof: () async {
+            final link = await showProofSheet(context);
+            if (link != null) await cubit.submitProof(link);
+          },
           onApprove: cubit.approve,
-          onDecline: () async {
-            final reason = await showDeclineSheet(context);
-            if (reason != null) await cubit.decline(reason);
+          onReject: () async {
+            final reason = await showRejectSheet(context);
+            if (reason != null) await cubit.reject(reason);
           },
           onRequestExtension: () async {
             final v = await showExtensionSheet(
@@ -141,7 +144,7 @@ class TaskDetailView extends StatelessWidget {
     required this.onMarkDone,
     required this.onSubmitProof,
     required this.onApprove,
-    required this.onDecline,
+    required this.onReject,
     required this.onRequestExtension,
     required this.onArchive,
   });
@@ -164,7 +167,7 @@ class TaskDetailView extends StatelessWidget {
   final VoidCallback onMarkDone;
   final VoidCallback onSubmitProof;
   final VoidCallback onApprove;
-  final VoidCallback onDecline;
+  final VoidCallback onReject;
   final VoidCallback onRequestExtension;
   final VoidCallback onArchive;
 
@@ -270,7 +273,8 @@ class TaskDetailView extends StatelessWidget {
               label: 'proof',
               onTap: onProof,
               value: Text(
-                task.requiredProofType == null ? 'none' : 'required',
+                detail?.proof?.url ??
+                    (task.requiredProofType == null ? 'none' : 'required'),
                 style: const TextStyle(fontSize: 15),
               ),
             ),
@@ -320,7 +324,7 @@ class TaskDetailView extends StatelessWidget {
                 onMarkDone: onMarkDone,
                 onSubmitProof: onSubmitProof,
                 onApprove: onApprove,
-                onDecline: onDecline,
+                onReject: onReject,
               ),
             ),
           ],
@@ -819,7 +823,7 @@ class _ActionBar extends StatelessWidget {
     required this.onMarkDone,
     required this.onSubmitProof,
     required this.onApprove,
-    required this.onDecline,
+    required this.onReject,
   });
 
   final DetailAction action;
@@ -829,7 +833,7 @@ class _ActionBar extends StatelessWidget {
   final VoidCallback onMarkDone;
   final VoidCallback onSubmitProof;
   final VoidCallback onApprove;
-  final VoidCallback onDecline;
+  final VoidCallback onReject;
 
   @override
   Widget build(BuildContext context) {
@@ -866,7 +870,7 @@ class _ActionBar extends StatelessWidget {
         children: [
           Expanded(
             child: OutlinedButton(
-              onPressed: onDecline,
+              onPressed: onReject,
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size.fromHeight(44),
                 shape: shape,
@@ -874,7 +878,7 @@ class _ActionBar extends StatelessWidget {
                 foregroundColor: AppColors.destructive,
                 side: const BorderSide(color: AppColors.border),
               ),
-              child: const Text('decline'),
+              child: const Text('reject'),
             ),
           ),
           const SizedBox(width: 12),

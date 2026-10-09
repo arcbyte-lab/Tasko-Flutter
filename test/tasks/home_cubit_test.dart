@@ -67,12 +67,17 @@ void main() {
     expect(named('Review PR #42').status, TaskStatus.review);
   });
 
-  test('a task that needs a proof throws and does not change', () async {
-    await cubit.selectTab(FakeTasksApi.taskoWeb);
-    final t = named('Upload release screenshots');
-    await expectLater(cubit.tick(t), throwsA(isA<ProofRequired>()));
-    expect(named('Upload release screenshots').status, TaskStatus.waiting);
-  });
+  test(
+    'a task that needs a proof waits for a link, then goes to review',
+    () async {
+      await cubit.selectTab(FakeTasksApi.taskoWeb);
+      final t = named('Upload release screenshots');
+      await expectLater(cubit.tick(t), throwsA(isA<ProofRequired>()));
+      expect(named('Upload release screenshots').status, TaskStatus.waiting);
+      await cubit.tick(t, proofUrl: 'https://example.com/shot.png');
+      expect(named('Upload release screenshots').status, TaskStatus.review);
+    },
+  );
 
   test('the change survives switching tabs (the API kept it)', () async {
     await cubit.tick(named('Renew passport'));

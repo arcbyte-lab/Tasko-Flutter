@@ -21,7 +21,7 @@ void main() {
           value: api,
           child: BlocProvider(
             create: (_) => HomeCubit(api, now: () => now)..load(),
-            child: const HomePanel(),
+            child: HomePanel(onLogOut: () {}),
           ),
         ),
       ),

@@ -10,6 +10,7 @@ import 'package:tasko/tasks/widgets/task_row.dart';
 
 void main() {
   final now = DateTime(2026, 10, 7, 10);
+  var loggedOut = false;
 
   Future<void> pump(WidgetTester tester, {String tab = 'tasko-web'}) async {
     tester.view.physicalSize = const Size(393 * 3, 852 * 3);
@@ -24,7 +25,7 @@ void main() {
           value: api,
           child: BlocProvider.value(
             value: cubit..load(),
-            child: const HomePanel(),
+            child: HomePanel(onLogOut: () => loggedOut = true),
           ),
         ),
       ),
@@ -91,7 +92,7 @@ void main() {
     expect(find.text('0 open'), findsOneWidget);
   });
 
-  testWidgets('ticking moves a task to completed; a proof task snacks', (
+  testWidgets('ticking moves a task to completed; a proof task asks a link', (
     tester,
   ) async {
     await pump(tester);
@@ -101,8 +102,13 @@ void main() {
     await scrollTo(tester, find.text('completed (4)'));
 
     await tester.tap(await checkboxOf(tester, 'Upload release screenshots'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, 'https://x.dev/a.png');
     await tester.pump();
-    expect(find.text('Needs a proof — coming soon'), findsOneWidget);
+    await tester.tap(find.text('send for review'));
+    await tester.pumpAndSettle();
+    expect(find.text('send for review'), findsNothing);
+    expect(find.text('Upload release screenshots'), findsOneWidget);
   });
 
   testWidgets('the full-screen calendar hides the list; a day collapses it', (
@@ -129,8 +135,7 @@ void main() {
     expect(find.text('mira@arcbyte.dev'), findsOneWidget);
     await tester.tap(find.text('log out'));
     await tester.pump();
-    expect(find.text('action: log out'), findsOneWidget);
-    await tester.pump(const Duration(seconds: 3));
+    expect(loggedOut, isTrue);
   });
 
   group('swiping the list', () {

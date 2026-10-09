@@ -63,22 +63,23 @@ Map<int, int> dueCounts(Iterable<Task> tasks, DateTime month) {
   return counts;
 }
 
-/// Thrown by [statusAfterTick] when a task needs a proof before review.
+/// Thrown by [statusAfterTick] when a task needs a proof before review: ask
+/// the user for a link, then tick again with it.
 class ProofRequired implements Exception {
   const ProofRequired();
 }
 
 /// What ticking the checkbox sets (arcbyte decisions 0004 and 0005), or null
-/// when the tap does nothing (a task in review waits on its reviewer).
-TaskStatus? statusAfterTick(Task t) {
+/// when the tap does nothing (a task in review waits on its reviewer). A task
+/// that needs a proof goes to review with [proofUrl] (decision 0007).
+TaskStatus? statusAfterTick(Task t, {String? proofUrl}) {
   if (t.status == TaskStatus.review) return null;
   if (t.status == TaskStatus.done) {
     return t.personal ? TaskStatus.todo : TaskStatus.waiting;
   }
   if (t.personal || t.requiredProofType == null) return TaskStatus.done;
-  // ponytail: proof upload isn't built, so a proof is never attached yet.
-  // Return TaskStatus.review here once Task Detail can attach one.
-  throw const ProofRequired();
+  if (proofUrl == null) throw const ProofRequired();
+  return TaskStatus.review;
 }
 
 const _months = [
