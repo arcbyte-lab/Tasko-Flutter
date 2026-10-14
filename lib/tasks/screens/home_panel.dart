@@ -11,6 +11,7 @@ import '../task_rules.dart';
 import '../tasks_api.dart';
 import 'create_task_sheet.dart';
 import 'home_view.dart';
+import 'members_screen.dart';
 import 'new_project_sheet.dart';
 import 'task_detail_sheet.dart';
 
@@ -65,6 +66,17 @@ class HomePanel extends StatelessWidget {
             : null,
         onLogOut: onLogOut,
         onStartSearch: cubit.startSearch,
+        onMembers: state.activeTab?.kind == TabKind.project
+            ? () async {
+                await openMembers(
+                  context,
+                  tab: state.activeTab!,
+                  meId: state.user!.id,
+                );
+                // Joined, left or re-roled: the tabs and roles may differ.
+                await cubit.reloadTabs();
+              }
+            : null,
         onSearch: cubit.search,
         onStopSearch: cubit.stopSearch,
         onViewOptions: () async {
