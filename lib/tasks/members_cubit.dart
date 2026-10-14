@@ -29,4 +29,8 @@ class MembersCubit extends Cubit<List<Member>?> {
     await _api.removeMember(tab, m.user.id);
     await load();
   }
+
+  /// The viewer leaves. No reload: the server no longer lets them see the
+  /// list, so the screen closes instead.
+  Future<void> leave(Member me) => _api.removeMember(tab, me.user.id);
 }

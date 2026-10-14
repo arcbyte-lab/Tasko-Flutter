@@ -162,7 +162,12 @@ class FakeTasksApi implements TasksApi {
   }
 
   @override
-  Future<List<Member>> membersOf(TaskTab tab) async => [...?_members[tab]];
+  Future<List<Member>> membersOf(TaskTab tab) async {
+    if (tab.kind != TabKind.private && _memberIn(tab, _me.id) == null) {
+      _refuse(403, 'Not a member');
+    }
+    return [...?_members[tab]];
+  }
 
   @override
   Future<Task> createTask(
