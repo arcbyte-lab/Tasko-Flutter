@@ -24,6 +24,7 @@ class HomeView extends StatelessWidget {
     required this.onNotifications,
     required this.onCreate,
     required this.onStartSearch,
+    this.onMembers,
     required this.onSearch,
     required this.onStopSearch,
     required this.onViewOptions,
@@ -44,6 +45,9 @@ class HomeView extends StatelessWidget {
   final ValueChanged<Task> onOpen;
   final VoidCallback onNotifications;
   final VoidCallback onStartSearch;
+
+  /// Null hides the members icon: only project tabs have one.
+  final VoidCallback? onMembers;
   final ValueChanged<String> onSearch;
   final VoidCallback onStopSearch;
   final VoidCallback onViewOptions;
@@ -115,6 +119,7 @@ class HomeView extends StatelessWidget {
             customised: !state.view.isDefault,
             onSearch: onStartSearch,
             onViewOptions: onViewOptions,
+            onMembers: onMembers,
           );
 
     return Scaffold(
@@ -370,6 +375,7 @@ class _Toolbar extends StatelessWidget {
     required this.customised,
     required this.onSearch,
     required this.onViewOptions,
+    this.onMembers,
   });
 
   final int count;
@@ -378,6 +384,7 @@ class _Toolbar extends StatelessWidget {
   final bool customised;
   final VoidCallback onSearch;
   final VoidCallback onViewOptions;
+  final VoidCallback? onMembers;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -393,6 +400,15 @@ class _Toolbar extends StatelessWidget {
             ),
           ),
         ),
+        if (onMembers != null)
+          IconButton(
+            onPressed: onMembers,
+            tooltip: 'Members',
+            icon: const Icon(
+              Icons.group_outlined,
+              color: AppColors.mutedForeground,
+            ),
+          ),
         IconButton(
           onPressed: onSearch,
           tooltip: 'Search',

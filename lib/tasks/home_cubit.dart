@@ -188,6 +188,37 @@ class HomeCubit extends Cubit<HomeState> {
     await _refresh(tab);
   }
 
+  /// Fetches the tab list again after a project was joined, left or
+  /// re-roled. Known tabs keep their tasks; new ones are loaded; every tab's
+  /// members are fetched again. If the active tab is gone, the first shows.
+  Future<void> reloadTabs() async {
+    final tabs = await _api.myTabs();
+    final known = state.tasksByTab;
+    final tasks = await Future.wait([
+      for (final t in tabs)
+        if (known[t] case final cached?)
+          Future.value(cached)
+        else
+          _api.tasksFor(t),
+    ]);
+    final members = await Future.wait(tabs.map(_api.membersOf));
+    final next = state.copyWith(
+      tabs: tabs,
+      tasksByTab: Map.fromIterables(tabs, tasks),
+      membersByTab: Map.fromIterables(tabs, members),
+    );
+    final active = tabs.firstWhere(
+      (t) => t == state.activeTab,
+      orElse: () => tabs.first,
+    );
+    // Same tab: take the fresh object, which carries the viewer's new role.
+    emit(
+      active == state.activeTab
+          ? next.copyWith(activeTab: active)
+          : next.pageFor(active),
+    );
+  }
+
   /// Fetches the active tab's tasks and the unread count again, after a
   /// sheet or screen closes.
   Future<void> reload() async {

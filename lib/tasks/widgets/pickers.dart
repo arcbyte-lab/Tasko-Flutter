@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
@@ -371,23 +373,7 @@ class _AssigneePickerState extends State<AssigneePicker> {
           TextField(
             onChanged: (v) => setState(() => _query = v),
             style: const TextStyle(fontSize: 15),
-            decoration: InputDecoration(
-              hintText: 'search members',
-              hintStyle: const TextStyle(color: AppColors.placeholder),
-              prefixIcon: const Icon(
-                Icons.search,
-                color: AppColors.mutedForeground,
-              ),
-              isDense: true,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-                borderSide: const BorderSide(color: AppColors.border),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-                borderSide: const BorderSide(color: AppColors.border),
-              ),
-            ),
+            decoration: _searchDecoration('search members'),
           ),
           const SizedBox(height: 8),
           Flexible(
@@ -395,8 +381,9 @@ class _AssigneePickerState extends State<AssigneePicker> {
               shrinkWrap: true,
               children: [
                 for (final m in shown)
-                  _MemberRow(
-                    member: m,
+                  MemberRow(
+                    user: m.user,
+                    subtitle: m.role,
                     isMe: m == me,
                     selected: m.user.id == _value?.user.id,
                     onTap: () => setState(() => _value = m),
@@ -410,18 +397,125 @@ class _AssigneePickerState extends State<AssigneePicker> {
   }
 }
 
-class _MemberRow extends StatelessWidget {
-  const _MemberRow({
-    required this.member,
-    required this.isMe,
-    required this.selected,
-    required this.onTap,
+InputDecoration _searchDecoration(String hint) => InputDecoration(
+  hintText: hint,
+  hintStyle: const TextStyle(color: AppColors.placeholder),
+  prefixIcon: const Icon(Icons.search, color: AppColors.mutedForeground),
+  isDense: true,
+  border: OutlineInputBorder(
+    borderRadius: BorderRadius.circular(6),
+    borderSide: const BorderSide(color: AppColors.border),
+  ),
+  enabledBorder: OutlineInputBorder(
+    borderRadius: BorderRadius.circular(6),
+    borderSide: const BorderSide(color: AppColors.border),
+  ),
+);
+
+/// Everyone active, searched on the server, for adding a project member
+/// (arcbyte decision 0010). [exclude] are the current members. Resolves to
+/// the chosen user.
+class UserSearchPicker extends StatefulWidget {
+  const UserSearchPicker({
+    super.key,
+    required this.search,
+    required this.exclude,
   });
 
-  final Member member;
+  final Future<List<User>> Function(String q) search;
+  final Set<int> exclude;
+
+  @override
+  State<UserSearchPicker> createState() => _UserSearchPickerState();
+}
+
+class _UserSearchPickerState extends State<UserSearchPicker> {
+  List<User>? _found;
+  User? _value;
+  Timer? _debounce;
+  var _latest = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _run('');
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  /// Only the newest query's answer is shown, whatever order they arrive in.
+  Future<void> _run(String q) async {
+    final mine = ++_latest;
+    final users = await widget.search(q);
+    if (!mounted || mine != _latest) return;
+    setState(
+      () => _found = [
+        for (final u in users)
+          if (!widget.exclude.contains(u.id)) u,
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => PickerFrame(
+    label: 'ADD MEMBER',
+    onDone: () => Navigator.pop(context, _value),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        TextField(
+          autofocus: true,
+          onChanged: (v) {
+            _debounce?.cancel();
+            _debounce = Timer(const Duration(milliseconds: 300), () => _run(v));
+          },
+          style: const TextStyle(fontSize: 15),
+          decoration: _searchDecoration('search people'),
+        ),
+        const SizedBox(height: 8),
+        Flexible(
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              for (final u in _found ?? const <User>[])
+                MemberRow(
+                  user: u,
+                  subtitle: u.email ?? '',
+                  isMe: false,
+                  selected: u.id == _value?.id,
+                  onTap: () => setState(() => _value = u),
+                ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+/// An avatar, the name ("me" for the viewer), a subtitle, and a check when
+/// [selected] or else [trailing].
+class MemberRow extends StatelessWidget {
+  const MemberRow({
+    super.key,
+    required this.user,
+    required this.subtitle,
+    required this.isMe,
+    this.selected = false,
+    this.onTap,
+    this.trailing,
+  });
+
+  final User user;
+  final String subtitle;
   final bool isMe;
   final bool selected;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) => Material(
@@ -438,7 +532,7 @@ class _MemberRow extends StatelessWidget {
               radius: 16,
               backgroundColor: isMe ? AppColors.primary : AppColors.accent,
               child: Text(
-                isMe ? 'M' : member.user.name[0],
+                (isMe ? 'me' : user.name)[0].toUpperCase(),
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -452,11 +546,11 @@ class _MemberRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    isMe ? 'me' : member.user.name,
+                    isMe ? 'me' : user.name,
                     style: const TextStyle(fontSize: 15),
                   ),
                   Text(
-                    member.role,
+                    subtitle,
                     style: const TextStyle(
                       fontSize: 12,
                       color: AppColors.mutedForeground,
@@ -465,7 +559,10 @@ class _MemberRow extends StatelessWidget {
                 ],
               ),
             ),
-            if (selected) const Icon(Icons.check, color: AppColors.primary),
+            if (selected)
+              const Icon(Icons.check, color: AppColors.primary)
+            else
+              ?trailing,
           ],
         ),
       ),
