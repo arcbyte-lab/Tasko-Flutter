@@ -52,7 +52,7 @@ class _MembersPanel extends StatelessWidget {
         onRole: cubit.setRole,
         onRemove: cubit.remove,
         onLeave: (me) async {
-          await cubit.remove(me);
+          await cubit.leave(me);
           if (context.mounted) Navigator.pop(context);
         },
       ),

@@ -45,7 +45,7 @@ void main() {
       await home.selectTab(app);
 
       final mira = (await api.membersOf(app)).first;
-      await MembersCubit(api, app).remove(mira);
+      await MembersCubit(api, app).leave(mira);
       await home.reloadTabs();
 
       expect(home.state.tabs, isNot(contains(app)));
