@@ -138,6 +138,7 @@ class HttpTasksApi implements TasksApi {
       'priority': task.priority.level,
       'dueDate': _date(task.dueDate),
       if (!task.personal) 'assigneeId': task.assigneeId,
+      if (!task.personal) 'repeat': _repeatJson(task.repeat),
     }),
   );
 
@@ -250,4 +251,24 @@ Task _task(dynamic j) => Task(
   code: j['code'] as String?,
   parentId: j['parentId'] as int?,
   completedAt: _time(j['completedAt']),
+  repeat: j['repeat'] == null ? null : _repeat(j['repeat']),
 );
+
+/// `until` is a day, not an instant: `YYYY-MM-DD`.
+Repeat _repeat(dynamic j) => Repeat(
+  every: j['every'] as int,
+  unit: RepeatUnit.values.byName(j['unit'] as String),
+  weekdays: [for (final d in j['weekdays']) d as int],
+  until: j['until'] == null ? null : DateTime.parse(j['until'] as String),
+  count: j['count'] as int?,
+);
+
+Map<String, Object?>? _repeatJson(Repeat? r) => r == null
+    ? null
+    : {
+        'every': r.every,
+        'unit': r.unit.name,
+        'weekdays': r.weekdays,
+        'until': r.until?.toIso8601String().substring(0, 10),
+        'count': r.count,
+      };

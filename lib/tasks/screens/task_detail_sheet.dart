@@ -8,6 +8,7 @@ import '../task_detail_cubit.dart';
 import '../task_rules.dart';
 import '../tasks_api.dart';
 import '../widgets/pickers.dart';
+import 'repeat_screen.dart';
 import '../widgets/reason_sheets.dart';
 import '../widgets/task_row.dart';
 
@@ -67,6 +68,16 @@ class _TaskDetailPanel extends StatelessWidget {
               DueDatePicker(initial: task.dueDate, today: today),
             );
             if (v != null) await cubit.setDueDate(v);
+          },
+          onRepeat: () async {
+            final due = task.dueDate;
+            if (due == null) return showToast(context, 'set a due date first');
+            final v = await openRepeatScreen(
+              context,
+              initial: task.repeat,
+              due: due,
+            );
+            if (v != null) await cubit.setRepeat(v.$1);
           },
           onAssignee: () async {
             final members = await context.read<TasksApi>().membersOf(
@@ -135,6 +146,7 @@ class TaskDetailView extends StatelessWidget {
     required this.onCommit,
     required this.onPriority,
     required this.onDueDate,
+    required this.onRepeat,
     required this.onAssignee,
     required this.onProof,
     required this.onTickSubtask,
@@ -158,6 +170,7 @@ class TaskDetailView extends StatelessWidget {
   final VoidCallback onCommit;
   final VoidCallback onPriority;
   final VoidCallback onDueDate;
+  final VoidCallback onRepeat;
   final VoidCallback onAssignee;
   final VoidCallback onProof;
   final ValueChanged<Task> onTickSubtask;
@@ -261,6 +274,19 @@ class TaskDetailView extends StatelessWidget {
             onTap: onDueDate,
             value: _dueText(task),
           ),
+          // Only a workspace's own top-level tasks repeat (arcbyte decision 0009).
+          if (detail?.tab.kind == TabKind.division && task.parentId == null)
+            _PropRow(
+              icon: Icons.repeat,
+              label: 'repeat',
+              onTap: onRepeat,
+              value: Text(
+                task.repeat == null
+                    ? 'does not repeat'
+                    : repeatSummary(task.repeat!, today),
+                style: const TextStyle(fontSize: 15),
+              ),
+            ),
           if (team) ...[
             _PropRow(
               icon: Icons.person_outline,

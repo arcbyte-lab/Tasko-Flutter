@@ -85,6 +85,29 @@ void main() {
     });
   });
 
+  test('a repeat rule goes out and comes back; until is a plain day', () async {
+    const rule = {
+      'every': 2,
+      'unit': 'week',
+      'weekdays': [1, 4],
+      'until': '2026-12-31',
+      'count': null,
+    };
+    reply = (_) => http.Response(jsonEncode({..._row, 'repeat': rule}), 200);
+    final task = await api().updateTask(
+      _task.copyWith(
+        repeat: () => Repeat(
+          every: 2,
+          weekdays: const [1, 4],
+          until: DateTime(2026, 12, 31),
+        ),
+      ),
+    );
+    expect(jsonDecode(sent.single.body)['repeat'], rule);
+    expect(task.repeat!.unit, RepeatUnit.week);
+    expect(task.repeat!.until, DateTime(2026, 12, 31));
+  });
+
   test('an error carries the server message; 401 logs out', () async {
     reply = (_) => http.Response('Only the assignee can change this task', 403);
     await expectLater(
