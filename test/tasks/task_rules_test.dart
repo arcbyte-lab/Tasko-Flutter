@@ -209,4 +209,18 @@ void main() {
     expect(notificationTime(DateTime(2026, 10, 6, 23), at), 'yesterday');
     expect(notificationTime(DateTime(2026, 10, 5, 12), at), 'Oct 5');
   });
+
+  test('who can create projects and manage members (0010)', () {
+    TaskTab tab(TabKind kind, String? role) =>
+        TaskTab(kind, 1, 'x', role: role);
+    expect(canCreateProject(tab(TabKind.division, 'admin')), isTrue);
+    expect(canCreateProject(tab(TabKind.division, 'supervisor')), isTrue);
+    expect(canCreateProject(tab(TabKind.division, 'member')), isFalse);
+    expect(canCreateProject(tab(TabKind.project, 'owner')), isFalse);
+    expect(canManageMembers(tab(TabKind.project, 'owner')), isTrue);
+    expect(canManageMembers(tab(TabKind.project, 'person-in-charge')), isTrue);
+    expect(canManageMembers(tab(TabKind.project, 'member')), isFalse);
+    expect(canManageMembers(tab(TabKind.division, 'admin')), isFalse);
+    expect(canManageMembers(TaskTab.private), isFalse);
+  });
 }

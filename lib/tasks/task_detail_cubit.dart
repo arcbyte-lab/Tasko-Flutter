@@ -85,7 +85,7 @@ class TaskDetailCubit extends Cubit<TaskDetailState> {
   Future<void> setDueDate(DateTime d) => _save(state.task.copyWith(dueDate: d));
 
   Future<void> setAssignee(Member m) =>
-      _save(state.task.copyWith(assigneeId: m.user.id));
+      _save(state.task.copyWith(assigneeId: () => m.user.id));
 
   /// Null stops it repeating.
   Future<void> setRepeat(Repeat? r) =>

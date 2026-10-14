@@ -105,7 +105,7 @@ class Task {
     TaskStatus? status,
     Priority? priority,
     DateTime? dueDate,
-    int? assigneeId,
+    int? Function()? assigneeId,
     DateTime? Function()? completedAt,
     Repeat? Function()? repeat,
   }) => Task(
@@ -115,7 +115,7 @@ class Task {
     priority: priority ?? this.priority,
     dueDate: dueDate ?? this.dueDate,
     description: description != null ? description() : this.description,
-    assigneeId: assigneeId ?? this.assigneeId,
+    assigneeId: assigneeId != null ? assigneeId() : this.assigneeId,
     requiredProofType: requiredProofType,
     personal: personal,
     code: code,
@@ -130,11 +130,16 @@ enum TabKind { private, division, project }
 /// A tab on the home screen: `private`, a division, or a project
 /// (arcbyte decision 0002).
 class TaskTab {
-  const TaskTab(this.kind, this.id, this.name);
+  const TaskTab(this.kind, this.id, this.name, {this.role});
 
   final TabKind kind;
   final int id;
   final String name;
+
+  /// The viewer's `division_members.role_type` or `project_members.role`;
+  /// null on `private`. Only decides which buttons show: the server checks
+  /// every change. Not part of equality.
+  final String? role;
 
   static const private = TaskTab(TabKind.private, 0, 'private');
 
