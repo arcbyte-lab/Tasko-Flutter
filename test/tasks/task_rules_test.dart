@@ -183,6 +183,25 @@ void main() {
     expect(relativeTime(DateTime(2026, 9, 1), now), 'Sep 1');
   });
 
+  test('repeat summary', () {
+    expect(repeatSummary(const Repeat(unit: RepeatUnit.day), now), 'every day');
+    expect(
+      repeatSummary(const Repeat(every: 2, weekdays: [1, 3, 5]), now),
+      'every 2 weeks on Mon, Wed and Fri',
+    );
+    expect(
+      repeatSummary(const Repeat(unit: RepeatUnit.month, count: 6), now),
+      'every month, 6 times',
+    );
+    expect(
+      repeatSummary(
+        Repeat(unit: RepeatUnit.year, until: DateTime(2030, 1, 1)),
+        now,
+      ),
+      'every year, until Jan 1, 2030',
+    );
+  });
+
   test('notification time', () {
     final at = DateTime(2026, 10, 7, 10);
     expect(notificationTime(DateTime(2026, 10, 7, 9, 55), at), '5m ago');

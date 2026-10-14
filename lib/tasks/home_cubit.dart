@@ -228,6 +228,8 @@ class HomeCubit extends Cubit<HomeState> {
     final next = statusAfterTick(task, proofUrl: proofUrl);
     if (next == null) return;
     final updated = await _api.setStatus(task, next, proofUrl: proofUrl);
+    // Finishing a repeating task made the next one on the server.
+    if (task.repeat != null) return _refresh(state.activeTab!);
     emit(
       state.copyWith(
         tasksByTab: {

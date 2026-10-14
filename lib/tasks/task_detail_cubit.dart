@@ -87,6 +87,10 @@ class TaskDetailCubit extends Cubit<TaskDetailState> {
   Future<void> setAssignee(Member m) =>
       _save(state.task.copyWith(assigneeId: m.user.id));
 
+  /// Null stops it repeating.
+  Future<void> setRepeat(Repeat? r) =>
+      _save(state.task.copyWith(repeat: () => r));
+
   Future<void> startWorking() => _status(TaskStatus.inProgress);
 
   Future<void> markDone() => _status(TaskStatus.done);

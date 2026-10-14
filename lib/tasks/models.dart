@@ -24,6 +24,33 @@ enum Priority {
   int get level => index + 1;
 }
 
+enum RepeatUnit { day, week, month, year }
+
+/// A workspace task's repeat rule (arcbyte decision 0009), as in Santian:
+/// finishing the task makes the server create the next one, due one step
+/// later, and the rule moves onto it.
+class Repeat {
+  const Repeat({
+    this.every = 1,
+    this.unit = RepeatUnit.week,
+    this.weekdays = const [],
+    this.until,
+    this.count,
+  });
+
+  final int every;
+  final RepeatUnit unit;
+
+  /// ISO weekdays, 1 = Monday. Weekly only.
+  final List<int> weekdays;
+
+  /// The last day an occurrence may fall on.
+  final DateTime? until;
+
+  /// Occurrences left, this one included.
+  final int? count;
+}
+
 /// One row in the list: a `tasks` row, or a `personal_tasks` row when
 /// [personal] is true. Both tables map onto this one model so the list rules
 /// work on either. Sub-tasks are Tasks with a [parentId].
@@ -41,6 +68,7 @@ class Task {
     this.code,
     this.parentId,
     this.completedAt,
+    this.repeat,
   });
 
   final int id;
@@ -68,6 +96,9 @@ class Task {
   /// `completed_date` or `completed_at`.
   final DateTime? completedAt;
 
+  /// Workspace tasks only.
+  final Repeat? repeat;
+
   Task copyWith({
     String? name,
     String? Function()? description,
@@ -76,6 +107,7 @@ class Task {
     DateTime? dueDate,
     int? assigneeId,
     DateTime? Function()? completedAt,
+    Repeat? Function()? repeat,
   }) => Task(
     id: id,
     name: name ?? this.name,
@@ -89,6 +121,7 @@ class Task {
     code: code,
     parentId: parentId,
     completedAt: completedAt != null ? completedAt() : this.completedAt,
+    repeat: repeat != null ? repeat() : this.repeat,
   );
 }
 

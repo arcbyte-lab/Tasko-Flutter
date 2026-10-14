@@ -118,6 +118,26 @@ String shortDate(DateTime d, DateTime now) {
   return d.year == now.year ? s : '$s, ${d.year}';
 }
 
+const weekdayShort = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+/// "every week on Mon and Thu", "every 2 days, 6 times", "every month,
+/// until Oct 30".
+String repeatSummary(Repeat r, DateTime now) {
+  final unit = r.every == 1 ? r.unit.name : '${r.every} ${r.unit.name}s';
+  final days = [for (final d in r.weekdays) weekdayShort[d - 1]];
+  final on = days.isEmpty
+      ? ''
+      : days.length == 1
+      ? ' on ${days.single}'
+      : ' on ${days.sublist(0, days.length - 1).join(', ')} and ${days.last}';
+  final ends = r.count != null
+      ? ', ${r.count} ${r.count == 1 ? 'time' : 'times'}'
+      : r.until != null
+      ? ', until ${shortDate(r.until!, now)}'
+      : '';
+  return 'every $unit$on$ends';
+}
+
 /// The bar under Task Detail (arcbyte lofi ticket T9).
 enum DetailAction {
   startWorking,

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tasko/core/theme/app_theme.dart';
 import 'package:tasko/tasks/home_cubit.dart';
+import 'package:tasko/tasks/models.dart';
 import 'package:tasko/tasks/screens/home_panel.dart';
 import 'package:tasko/tasks/tasks_api.dart';
 
@@ -10,12 +11,19 @@ void main() {
   final now = DateTime(2026, 10, 7, 10);
   late FakeTasksApi api;
 
-  /// Home on [tab], then opens [task] from the list.
-  Future<void> open(WidgetTester tester, String tab, String task) async {
+  /// Home on [tab], then opens [task] from the list. [seed] adds to the fake
+  /// first.
+  Future<void> open(
+    WidgetTester tester,
+    String tab,
+    String task, {
+    Future<void> Function(FakeTasksApi api)? seed,
+  }) async {
     tester.view.physicalSize = const Size(393 * 3, 852 * 3);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
     api = FakeTasksApi(today: now);
+    await seed?.call(api);
     await tester.pumpWidget(
       MaterialApp(
         theme: appTheme,
@@ -57,6 +65,7 @@ void main() {
     for (final label in ['status', 'priority', 'due', 'assignee', 'proof']) {
       expect(find.text(label), findsOneWidget);
     }
+    expect(find.text('repeat'), findsNothing, reason: 'a project task');
     expect(find.text('in progress'), findsWidgets);
     expect(find.text('required'), findsOneWidget);
     expect(find.text('SUB-TASKS (1/3)'), findsOneWidget);
@@ -88,6 +97,47 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('https://x.dev/a.png'), findsOneWidget);
     expect(find.text('approve'), findsOneWidget); // Mira reviews tasko-web
+  });
+
+  testWidgets('a workspace task repeats; the rule is saved and can stop', (
+    tester,
+  ) async {
+    await open(
+      tester,
+      'tech',
+      'Renew SSL certificate',
+      seed: (api) => api.createTask(
+        FakeTasksApi.tech,
+        name: 'Renew SSL certificate',
+        priority: Priority.high,
+        dueDate: DateTime(2026, 10, 14, 9), // a Wednesday
+        assigneeId: 1,
+      ),
+    );
+    expect(find.text('does not repeat'), findsOneWidget);
+
+    await tester.tap(find.text('repeat'));
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining('every week on Wed at 09:00'),
+      findsOneWidget,
+      reason: 'starts on the due weekday',
+    );
+    await tester.tap(find.bySemanticsLabel('Mon'));
+    await tester.tap(find.text('after'));
+    await tester.pump();
+    await tester.tap(find.widgetWithText(TextButton, 'done'));
+    await tester.pumpAndSettle();
+    expect(find.text('every week on Mon and Wed, 10 times'), findsOneWidget);
+    final saved = (await api.tasksFor(FakeTasksApi.tech)).single.repeat!;
+    expect((saved.unit, saved.count), (RepeatUnit.week, 10));
+    expect(saved.weekdays, [1, 3]);
+
+    await tester.tap(find.text('repeat'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('stop repeating'));
+    await tester.pumpAndSettle();
+    expect(find.text('does not repeat'), findsOneWidget);
   });
 
   testWidgets('a personal task: no team rows; start, then done', (
