@@ -168,6 +168,19 @@ class HomeCubit extends Cubit<HomeState> {
     );
   }
 
+  /// A project the viewer just created: last, where projects go, and shown.
+  Future<void> addTab(TaskTab tab) async {
+    final members = await _api.membersOf(tab);
+    emit(
+      state.copyWith(
+        tabs: [...state.tabs, tab],
+        tasksByTab: {...state.tasksByTab, tab: const []},
+        membersByTab: {...state.membersByTab, tab: members},
+      ),
+    );
+    await selectTab(tab);
+  }
+
   /// Switches at once from what is loaded, then refreshes that tab.
   Future<void> selectTab(TaskTab tab) async {
     if (tab == state.activeTab) return;

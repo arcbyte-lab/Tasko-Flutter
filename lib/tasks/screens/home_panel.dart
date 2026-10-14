@@ -11,6 +11,7 @@ import '../task_rules.dart';
 import '../tasks_api.dart';
 import 'create_task_sheet.dart';
 import 'home_view.dart';
+import 'new_project_sheet.dart';
 import 'task_detail_sheet.dart';
 
 /// Connects [HomeView] to [HomeCubit] and shows its snackbars.
@@ -51,6 +52,17 @@ class HomePanel extends StatelessWidget {
         onToggleCalendar: cubit.toggleCalendar,
         // No account screen exists yet (arcbyte lofi T12 pattern).
         onAccountSettings: () => showToast(context, 'action: account settings'),
+        onNewProject: state.tabs.any(canCreateProject)
+            ? () async {
+                final tab = await showNewProjectSheet(
+                  context,
+                  api: context.read<TasksApi>(),
+                  divisions: state.tabs.where(canCreateProject).toList(),
+                  today: state.today,
+                );
+                if (tab != null) await cubit.addTab(tab);
+              }
+            : null,
         onLogOut: onLogOut,
         onStartSearch: cubit.startSearch,
         onSearch: cubit.search,
