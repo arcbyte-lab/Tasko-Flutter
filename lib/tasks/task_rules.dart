@@ -192,3 +192,15 @@ String notificationTime(DateTime then, DateTime now) {
   if (days == 1) return 'yesterday';
   return shortDate(then, now);
 }
+
+/// The viewer may create a project in [tab]: a division they are an admin
+/// or supervisor of (arcbyte decision 0010).
+bool canCreateProject(TaskTab tab) =>
+    tab.kind == TabKind.division &&
+    (tab.role == 'admin' || tab.role == 'supervisor');
+
+/// The viewer may add, re-role and remove members of [tab]: a project they
+/// own or are the person-in-charge of (arcbyte decision 0010).
+bool canManageMembers(TaskTab tab) =>
+    tab.kind == TabKind.project &&
+    (tab.role == 'owner' || tab.role == 'person-in-charge');

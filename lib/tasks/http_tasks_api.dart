@@ -108,8 +108,7 @@ class HttpTasksApi implements TasksApi {
 
   @override
   Future<List<Member>> membersOf(TaskTab tab) async => [
-    for (final m in await _get('${_tabPath(tab)}/members'))
-      Member(_user(m['user']), m['role'] as String),
+    for (final m in await _get('${_tabPath(tab)}/members')) _member(m),
   ];
 
   @override
@@ -211,6 +210,55 @@ class HttpTasksApi implements TasksApi {
 
   @override
   Future<void> markAllRead() => _send('POST', '/notifications/read-all');
+
+  /// `projects.due_date` is a day, so it goes out as the local `YYYY-MM-DD`.
+  @override
+  Future<TaskTab> createProject(
+    int divisionId,
+    String name, {
+    String? description,
+    DateTime? dueDate,
+  }) async => _tab(
+    await _send('POST', '/projects', {
+      'divisionId': divisionId,
+      'name': name,
+      'description': ?description,
+      'dueDate': ?dueDate?.toIso8601String().substring(0, 10),
+    }),
+  );
+
+  @override
+  Future<List<User>> searchUsers(String q) async => [
+    for (final u in await _get('/users?q=${Uri.encodeQueryComponent(q)}'))
+      _user(u),
+  ];
+
+  @override
+  Future<Member> addMember(
+    TaskTab project,
+    int userId, {
+    String role = 'member',
+  }) async => _member(
+    await _send('POST', '/projects/${project.id}/members', {
+      'userId': userId,
+      'role': role,
+    }),
+  );
+
+  @override
+  Future<Member> setMemberRole(
+    TaskTab project,
+    int userId,
+    String role,
+  ) async => _member(
+    await _send('PATCH', '/projects/${project.id}/members/$userId', {
+      'role': role,
+    }),
+  );
+
+  @override
+  Future<void> removeMember(TaskTab project, int userId) =>
+      _send('DELETE', '/projects/${project.id}/members/$userId');
 }
 
 /// The server speaks UTC ISO 8601; the app works in local time.
@@ -230,7 +278,10 @@ TaskTab _tab(dynamic j) => TaskTab(
   TabKind.values.byName(j['kind'] as String),
   j['id'] as int,
   j['name'] as String,
+  role: j['role'] as String?,
 );
+
+Member _member(dynamic j) => Member(_user(j['user']), j['role'] as String);
 
 Comment _comment(dynamic j) => Comment(
   author: _user(j['author']),

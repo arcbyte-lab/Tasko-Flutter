@@ -139,6 +139,86 @@ void main() {
     );
     expect((await api().me()).mustChangePassword, isTrue);
   });
+
+  test('tabs carry the viewer’s role', () async {
+    reply = (_) => http.Response(
+      jsonEncode([
+        {'kind': 'private', 'id': 0, 'name': 'private', 'role': null},
+        {'kind': 'project', 'id': 2, 'name': 'tasko-web', 'role': 'owner'},
+      ]),
+      200,
+    );
+    final tabs = await api().myTabs();
+    expect(tabs.map((t) => t.role), [null, 'owner']);
+  });
+
+  test('creates a project; its due date goes out as the local day', () async {
+    reply = (_) => http.Response(
+      jsonEncode({
+        'kind': 'project',
+        'id': 9,
+        'name': 'Launch',
+        'role': 'owner',
+      }),
+      201,
+    );
+    final tab = await api().createProject(
+      1,
+      'Launch',
+      dueDate: DateTime(2026, 12, 31),
+    );
+
+    final req = sent.single;
+    expect(
+      (req.method, req.url.toString()),
+      ('POST', 'https://api.test/projects'),
+    );
+    expect(jsonDecode(req.body), {
+      'divisionId': 1,
+      'name': 'Launch',
+      'dueDate': '2026-12-31',
+    });
+    expect((tab.kind, tab.id, tab.role), (TabKind.project, 9, 'owner'));
+  });
+
+  test('searches users with an encoded query', () async {
+    reply = (_) => http.Response(
+      jsonEncode([
+        {'id': 3, 'name': 'Budi', 'email': 'budi@arcbyte.dev'},
+      ]),
+      200,
+    );
+    final users = await api().searchUsers('budi & co');
+    expect(sent.single.url.toString(), 'https://api.test/users?q=budi+%26+co');
+    expect(users.single.email, 'budi@arcbyte.dev');
+  });
+
+  test('adds, re-roles and removes members', () async {
+    const project = TaskTab(TabKind.project, 2, 'tasko-web');
+    const budi = {
+      'user': {'id': 3, 'name': 'Budi'},
+      'role': 'viewer',
+    };
+    reply = (_) => http.Response(jsonEncode(budi), 200);
+
+    final added = await api().addMember(project, 3, role: 'viewer');
+    final changed = await api().setMemberRole(project, 3, 'viewer');
+    reply = (_) => http.Response('', 204);
+    await api().removeMember(project, 3);
+
+    expect(
+      [for (final r in sent) '${r.method} ${r.url.path}'],
+      [
+        'POST /projects/2/members',
+        'PATCH /projects/2/members/3',
+        'DELETE /projects/2/members/3',
+      ],
+    );
+    expect(jsonDecode(sent[0].body), {'userId': 3, 'role': 'viewer'});
+    expect(jsonDecode(sent[1].body), {'role': 'viewer'});
+    expect((added.user.name, added.role), ('Budi', 'viewer'));
+    expect(changed.role, 'viewer');
+  });
 }
 
 const _task = Task(id: 7, name: 'x', status: TaskStatus.inProgress);

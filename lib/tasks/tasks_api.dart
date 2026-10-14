@@ -1,4 +1,6 @@
+import 'http_tasks_api.dart' show ApiException;
 import 'models.dart';
+import 'task_rules.dart';
 
 /// What the app needs from the server. The only seam in the app:
 /// [HttpTasksApi] talks to Tasko-API; the fake below runs the tests.
@@ -52,13 +54,41 @@ abstract interface class TasksApi {
   Future<void> markRead(String notificationId);
 
   Future<void> markAllRead();
+
+  /// A project in division [divisionId]; the viewer becomes its owner. The
+  /// returned tab carries `role: 'owner'` (arcbyte decision 0010).
+  Future<TaskTab> createProject(
+    int divisionId,
+    String name, {
+    String? description,
+    DateTime? dueDate,
+  });
+
+  /// Up to 20 active users whose name or email contains [q], for the member
+  /// picker.
+  Future<List<User>> searchUsers(String q);
+
+  /// Adds [userId] to [project] directly: there is no invitation step.
+  Future<Member> addMember(
+    TaskTab project,
+    int userId, {
+    String role = 'member',
+  });
+
+  Future<Member> setMemberRole(TaskTab project, int userId, String role);
+
+  /// Removes [userId]; the viewer's own id leaves the project. Their open
+  /// tasks there lose their assignee.
+  Future<void> removeMember(TaskTab project, int userId);
 }
 
 /// In-memory [TasksApi] seeded with the mockups' sample data, dated relative
 /// to [today] so "today" and "overdue" always look right.
 ///
-/// The viewer is Mira: author of tasko-web (so she reviews there) and a plain
-/// member of tasko-app (so she can ask for extensions there).
+/// The viewer is Mira: owner of tasko-web (so she reviews there), a plain
+/// member of tasko-app (so she can ask for extensions there), and a
+/// supervisor of tech (so she can create projects). Membership rules match
+/// Tasko-API's, refused with the same [ApiException] statuses.
 class FakeTasksApi implements TasksApi {
   FakeTasksApi({required DateTime today})
     : _today = DateTime(today.year, today.month, today.day) {
@@ -71,6 +101,8 @@ class FakeTasksApi implements TasksApi {
   final _creatorOf = <int, int>{};
   final _notifications = <AppNotification>[];
   final _proofs = <int, Proof>{};
+  final _tabs = [TaskTab.private, tech, taskoApp, taskoWeb];
+  final _members = <TaskTab, List<Member>>{};
 
   /// What was sent, for tests to check.
   final reviews = <(int taskId, bool approve, String? reason)>[];
@@ -84,16 +116,23 @@ class FakeTasksApi implements TasksApi {
   static const _ana = User(id: 2, name: 'Ana');
   static const _budi = User(id: 3, name: 'Budi');
 
+  /// Everyone who can log in. Gita is in no project, to be added in tests.
+  static const users = [
+    _me,
+    _ana,
+    _budi,
+    User(id: 4, name: 'Citra', email: 'citra@arcbyte.dev'),
+    User(id: 5, name: 'Dimas', email: 'dimas@arcbyte.dev'),
+    User(id: 6, name: 'Eka', email: 'eka@arcbyte.dev'),
+    User(id: 7, name: 'Fajar', email: 'fajar@arcbyte.dev'),
+    User(id: 8, name: 'Gita', email: 'gita@arcbyte.dev'),
+  ];
+
   @override
   Future<User> me() async => _me;
 
   @override
-  Future<List<TaskTab>> myTabs() async => [
-    TaskTab.private,
-    tech,
-    taskoApp,
-    taskoWeb,
-  ];
+  Future<List<TaskTab>> myTabs() async => [for (final t in _tabs) _mine(t)];
 
   @override
   Future<List<Task>> tasksFor(TaskTab tab) async => [
@@ -123,22 +162,7 @@ class FakeTasksApi implements TasksApi {
   }
 
   @override
-  Future<List<Member>> membersOf(TaskTab tab) async {
-    if (tab.kind == TabKind.private) return [];
-    final lead = tab.kind == TabKind.project ? 'person-in-charge' : 'admin';
-    return [
-      const Member(_me, 'member'),
-      Member(_ana, lead),
-      for (final (i, name) in const [
-        'Budi',
-        'Citra',
-        'Dimas',
-        'Eka',
-        'Fajar',
-      ].indexed)
-        Member(User(id: i + 3, name: name), 'member'),
-    ];
-  }
+  Future<List<Member>> membersOf(TaskTab tab) async => [...?_members[tab]];
 
   @override
   Future<Task> createTask(
@@ -245,6 +269,115 @@ class FakeTasksApi implements TasksApi {
     _notifications.setAll(0, _notifications.map((n) => n.markRead(now)));
   }
 
+  @override
+  Future<TaskTab> createProject(
+    int divisionId,
+    String name, {
+    String? description,
+    DateTime? dueDate,
+  }) async {
+    final division = _tabs.firstWhere(
+      (t) => t.kind == TabKind.division && t.id == divisionId,
+      orElse: () => _refuse(403, 'Not a member'),
+    );
+    if (!canCreateProject(_mine(division))) {
+      _refuse(403, 'Only a division admin or supervisor can create a project');
+    }
+    final id = _tabs.where((t) => t.kind == TabKind.project).length + 1;
+    final tab = TaskTab(TabKind.project, id, name.trim());
+    _tabs.add(tab);
+    _tasks[tab] = [];
+    _members[tab] = [const Member(_me, 'owner')];
+    return _mine(tab);
+  }
+
+  @override
+  Future<List<User>> searchUsers(String q) async {
+    final needle = q.trim().toLowerCase();
+    return [
+      for (final u in users)
+        if (u.name.toLowerCase().contains(needle) ||
+            (u.email ?? '').toLowerCase().contains(needle))
+          u,
+    ]..sort((a, b) => a.name.compareTo(b.name));
+  }
+
+  @override
+  Future<Member> addMember(
+    TaskTab project,
+    int userId, {
+    String role = 'member',
+  }) async {
+    final mine = _mine(project);
+    if (!canManageMembers(mine)) {
+      _refuse(403, 'Only an owner or person-in-charge can add members');
+    }
+    if (role == 'owner' && mine.role != 'owner') _ownersOnly();
+    final user = users.where((u) => u.id == userId).firstOrNull;
+    if (user == null) _refuse(404, 'No such user');
+    if (_memberIn(project, userId) != null) _refuse(409, 'Already a member');
+    final m = Member(user, role);
+    _members[project]!.add(m);
+    return m;
+  }
+
+  @override
+  Future<Member> setMemberRole(TaskTab project, int userId, String role) async {
+    final mine = _mine(project);
+    if (!canManageMembers(mine)) {
+      _refuse(403, 'Only an owner or person-in-charge can change roles');
+    }
+    final current = _memberIn(project, userId) ?? _notMember();
+    if ((role == 'owner' || current.role == 'owner') && mine.role != 'owner') {
+      _ownersOnly();
+    }
+    if (current.role == 'owner' && role != 'owner') _keepAnOwner(project);
+    final list = _members[project]!;
+    return list[list.indexOf(current)] = Member(current.user, role);
+  }
+
+  @override
+  Future<void> removeMember(TaskTab project, int userId) async {
+    final mine = _mine(project);
+    final self = userId == _me.id;
+    if (!self && !canManageMembers(mine)) {
+      _refuse(403, 'Only an owner or person-in-charge can remove members');
+    }
+    final current = _memberIn(project, userId) ?? _notMember();
+    if (!self && current.role == 'owner' && mine.role != 'owner') _ownersOnly();
+    if (current.role == 'owner') _keepAnOwner(project);
+    _members[project]!.remove(current);
+    // Open but not in review: review keeps its assignee (arcbyte decision 0010).
+    final tasks = _tasks[project]!;
+    for (final (i, t) in tasks.indexed) {
+      if (t.assigneeId == userId &&
+          t.status != TaskStatus.review &&
+          isOpen(t)) {
+        tasks[i] = t.copyWith(assigneeId: () => null);
+      }
+    }
+    if (self) _tabs.remove(project);
+  }
+
+  /// [tab] with the viewer's role in it.
+  TaskTab _mine(TaskTab tab) =>
+      TaskTab(tab.kind, tab.id, tab.name, role: _memberIn(tab, _me.id)?.role);
+
+  Member? _memberIn(TaskTab tab, int userId) =>
+      _members[tab]?.where((m) => m.user.id == userId).firstOrNull;
+
+  void _keepAnOwner(TaskTab project) {
+    if (_members[project]!.where((m) => m.role == 'owner').length < 2) {
+      _refuse(422, 'A project needs an owner');
+    }
+  }
+
+  static Never _refuse(int status, String message) =>
+      throw ApiException(status, message);
+  static Never _ownersOnly() =>
+      _refuse(403, 'Only an owner can make or remove an owner');
+  static Never _notMember() => _refuse(404, 'Not a member of this project');
+
   TaskTab _tabOf(Task task) => _tasks.entries
       .firstWhere(
         (e) =>
@@ -350,6 +483,14 @@ class FakeTasksApi implements TasksApi {
 
     _tasks[TaskTab.private] = [];
     _tasks[tech] = [];
+    List<Member> members(String mira, String ana) => [
+      Member(_me, mira),
+      Member(_ana, ana),
+      for (final u in users.sublist(2, 7)) Member(u, 'member'),
+    ];
+    _members[tech] = members('supervisor', 'admin');
+    _members[taskoApp] = members('member', 'person-in-charge');
+    _members[taskoWeb] = members('owner', 'person-in-charge');
     final domain = p('Buy domain', medium, todo, 3);
     p('Renew passport', high, todo, 2);
     p('Book dentist', medium, inProgress, 0);
