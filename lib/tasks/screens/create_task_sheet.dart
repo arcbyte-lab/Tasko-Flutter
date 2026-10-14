@@ -161,7 +161,7 @@ class CreateTaskForm extends StatelessWidget {
               spacing: 8,
               runSpacing: 8,
               children: [
-                _Chip(
+                SheetChip(
                   icon: Icons.calendar_today_outlined,
                   label: due == null
                       ? 'due date'
@@ -169,19 +169,19 @@ class CreateTaskForm extends StatelessWidget {
                             '${formatTime(TimeOfDay.fromDateTime(due))}',
                   onTap: onDueDate,
                 ),
-                _Chip(
+                SheetChip(
                   icon: Icons.flag_outlined,
                   iconColor: TaskRow.priorityColor(state.priority),
                   label: state.priority.name,
                   onTap: onPriority,
                 ),
                 if (isTeam) ...[
-                  _Chip(
+                  SheetChip(
                     icon: Icons.person_outline,
                     label: isMe ? 'me' : (assignee?.user.name ?? 'assignee'),
                     onTap: state.members.isEmpty ? null : onAssignee,
                   ),
-                  _Chip(
+                  SheetChip(
                     icon: Icons.attach_file,
                     label: 'no proof',
                     onTap: onProof,
@@ -215,9 +215,11 @@ class CreateTaskForm extends StatelessWidget {
   }
 }
 
-/// H1 chip: #F3F4F6, radius 6, no border, 13 medium.
-class _Chip extends StatelessWidget {
-  const _Chip({
+/// H1 chip: #F3F4F6, radius 6, no border, 13 medium. Shared by the create
+/// sheets.
+class SheetChip extends StatelessWidget {
+  const SheetChip({
+    super.key,
     required this.icon,
     required this.label,
     required this.onTap,
