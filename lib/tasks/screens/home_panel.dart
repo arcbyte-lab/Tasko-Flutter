@@ -91,6 +91,8 @@ class HomePanel extends StatelessWidget {
         },
         onNotifications: () async {
           await openNotifications(context);
+          // Someone may have added the viewer to a project (decision 0010).
+          await cubit.reloadTabs();
           await cubit.reload();
         },
         onOpen: (task) async {

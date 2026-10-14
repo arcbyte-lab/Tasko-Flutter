@@ -3,6 +3,8 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:tasko/main.dart' as app;
+import 'package:tasko/tasks/http_tasks_api.dart';
+import 'package:tasko/tasks/widgets/pickers.dart';
 import 'package:tasko/tasks/widgets/task_row.dart';
 
 /// Manual smoke test: drives the real app on a phone against the live
@@ -17,6 +19,12 @@ import 'package:tasko/tasks/widgets/task_row.dart';
 ///   npx wrangler d1 execute DB --remote --file seed/seed.sql -y
 ///   npx wrangler d1 execute DB --remote --file seed/cases.sql -y
 ///
+/// Or against a local Tasko-API, leaving the live data alone. From
+/// Tasko-API, seed the local D1 the same way (`--local` for `--remote`),
+/// then `npx wrangler dev --local --port 8787`; over USB,
+/// `adb reverse tcp:8787 tcp:8787`; and add
+/// `--dart-define=API_URL=http://localhost:8787` to the command above.
+///
 /// A refused change (409, 422) can't be checked here: the harness fails the
 /// test on the unhandled error before the app's toast handler sees it. Try
 /// one by hand, e.g. a second extension request on "Document VPN setup".
@@ -26,14 +34,19 @@ void main() {
   final results = <String>[];
 
   testWidgets('live walkthrough', (tester) async {
-    /// Pumps until [finder] shows, for real network round trips.
-    Future<void> waitFor(Finder finder, {int seconds = 20}) async {
+    /// Pumps until [finder] shows (or, with [gone], stops showing), for real
+    /// network round trips.
+    Future<void> waitFor(
+      Finder finder, {
+      int seconds = 20,
+      bool gone = false,
+    }) async {
       final end = DateTime.now().add(Duration(seconds: seconds));
       while (DateTime.now().isBefore(end)) {
         await tester.pump(const Duration(milliseconds: 200));
-        if (finder.evaluate().isNotEmpty) return;
+        if (finder.evaluate().isNotEmpty != gone) return;
       }
-      throw TestFailure('timed out waiting for $finder');
+      throw TestFailure('timed out waiting for $finder${gone ? ' to go' : ''}');
     }
 
     Future<void> settle() async {
@@ -288,7 +301,88 @@ void main() {
       expect(find.byTooltip('Notifications'), findsOneWidget);
     });
 
+    // Projects and members (arcbyte decision 0010). Mira supervises ops.
+    await step('a division lead creates a project', () async {
+      await tester.tap(find.byTooltip('Account'));
+      await settle();
+      await tester.tap(find.text('new project'));
+      await settle();
+      expect(find.byTooltip('Division'), findsNothing); // ops is her only one
+      await tester.enterText(find.byType(TextField).last, 'Device project');
+      await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'done'));
+      await waitFor(find.byTooltip('Members'));
+      expect(find.text('Device project'), findsWidgets);
+    });
+
+    await step('the owner adds Budi from the user search', () async {
+      await tester.tap(find.byTooltip('Members'));
+      await waitFor(find.text('add member'));
+      await tester.tap(find.text('add member'));
+      await settle();
+      await tester.enterText(find.byType(TextField).last, 'budi');
+      final budi = find.descendant(
+        of: find.byType(UserSearchPicker),
+        matching: find.text('Budi'),
+      );
+      await waitFor(budi);
+      await tester.tap(budi);
+      await tester.pump();
+      await tester.tap(find.text('done'));
+      await waitFor(find.text('Budi'));
+    });
+
+    await step('the owner makes Budi a viewer', () async {
+      // The viewer's own row comes first, so Budi's menu is the last.
+      await tester.tap(find.byTooltip('Member options').last);
+      await settle();
+      await tester.tap(find.text('make viewer'));
+      await waitFor(find.text('viewer'));
+      await tester.pageBack();
+      await settle();
+    });
+
+    await step('a plain member leaves a project; its tab goes', () async {
+      await openTab('tasko-app');
+      await tester.tap(find.byTooltip('Members'));
+      await waitFor(find.byTooltip('Member options'));
+      expect(find.text('add member'), findsNothing);
+      expect(find.byTooltip('Member options'), findsOneWidget); // her own row
+      await tester.tap(find.byTooltip('Member options'));
+      await settle();
+      await tester.tap(find.text('leave project'));
+      await waitFor(find.text('tasko-app'), gone: true);
+      expect(find.text('tasko-web'), findsWidgets);
+    });
+
     await step('log out returns to login', logOut);
+
+    await step('Budi sees the project and why', () async {
+      await logIn('budi@arcbyte.dev');
+      await waitFor(find.text('Device project'));
+      await tester.tap(find.byTooltip('Notifications, unread'));
+      await waitFor(find.text('Mira added you to Device project'));
+      await tester.pageBack();
+      await settle();
+    });
+
+    await step('a project he is added to meanwhile shows after '
+        'notifications', () async {
+      await tester.tap(
+        find.byWidgetPredicate(
+          (w) =>
+              w is IconButton && (w.tooltip ?? '').startsWith('Notifications'),
+        ),
+      );
+      await settle();
+      // Mira, from elsewhere, while Budi reads his notifications.
+      final (token, _) = await login('mira@arcbyte.dev', 'password');
+      final mira = HttpTasksApi(token);
+      await mira.addMember(await mira.createProject(2, 'Second project'), 3);
+      await tester.pageBack();
+      await waitFor(find.text('Second project'));
+      await logOut();
+    });
 
     await step('an inactive user cannot log in', () async {
       await logIn('hadi@arcbyte.dev');
