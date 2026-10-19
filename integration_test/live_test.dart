@@ -303,9 +303,8 @@ void main() {
 
     // Projects and members (arcbyte decision 0010). Mira supervises ops.
     await step('a division lead creates a project', () async {
-      await tester.tap(find.byTooltip('Account'));
-      await settle();
-      await tester.tap(find.text('new project'));
+      await tester.ensureVisible(find.byTooltip('New project'));
+      await tester.tap(find.byTooltip('New project'));
       await settle();
       expect(find.byTooltip('Division'), findsNothing); // ops is her only one
       await tester.enterText(find.byType(TextField).last, 'Device project');

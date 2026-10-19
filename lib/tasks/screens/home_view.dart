@@ -54,7 +54,8 @@ class HomeView extends StatelessWidget {
   final VoidCallback onToggleCalendar;
   final VoidCallback onAccountSettings;
 
-  /// Null hides "new project": the viewer leads no division (decision 0010).
+  /// Null hides "new project" at the end of the tab strip: the viewer leads
+  /// no division (decisions 0010, 0011).
   final VoidCallback? onNewProject;
   final VoidCallback onLogOut;
 
@@ -131,7 +132,6 @@ class HomeView extends StatelessWidget {
               unread: state.unread > 0,
               onNotifications: onNotifications,
               onAccountSettings: onAccountSettings,
-              onNewProject: onNewProject,
               onLogOut: onLogOut,
             ),
             Flexible(
@@ -164,6 +164,7 @@ class HomeView extends StatelessWidget {
                         active: state.activeTab,
                         position: position,
                         onSelect: onSelectTab,
+                        onNewProject: onNewProject,
                       ),
                       toolbar,
                     ],
@@ -197,7 +198,6 @@ class _TopBar extends StatelessWidget {
     required this.unread,
     required this.onNotifications,
     required this.onAccountSettings,
-    this.onNewProject,
     required this.onLogOut,
   });
 
@@ -205,9 +205,6 @@ class _TopBar extends StatelessWidget {
   final bool unread;
   final VoidCallback onNotifications;
   final VoidCallback onAccountSettings;
-
-  /// Null hides "new project": the viewer leads no division (decision 0010).
-  final VoidCallback? onNewProject;
   final VoidCallback onLogOut;
 
   @override
@@ -261,7 +258,6 @@ class _TopBar extends StatelessWidget {
         _AccountMenu(
           user: user,
           onAccountSettings: onAccountSettings,
-          onNewProject: onNewProject,
           onLogOut: onLogOut,
         ),
       ],
@@ -275,15 +271,11 @@ class _AccountMenu extends StatelessWidget {
   const _AccountMenu({
     required this.user,
     required this.onAccountSettings,
-    this.onNewProject,
     required this.onLogOut,
   });
 
   final User user;
   final VoidCallback onAccountSettings;
-
-  /// Null hides "new project": the viewer leads no division (decision 0010).
-  final VoidCallback? onNewProject;
   final VoidCallback onLogOut;
 
   @override
@@ -335,11 +327,6 @@ class _AccountMenu extends StatelessWidget {
           ),
         ),
         const PopupMenuDivider(),
-        if (onNewProject != null)
-          PopupMenuItem(
-            value: onNewProject,
-            child: item(Icons.add, 'new project', AppColors.foreground),
-          ),
         PopupMenuItem(
           value: onAccountSettings,
           child: item(

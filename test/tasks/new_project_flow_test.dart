@@ -39,8 +39,6 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Account'));
-    await tester.pumpAndSettle();
     return cubit;
   }
 
@@ -48,7 +46,9 @@ void main() {
     tester,
   ) async {
     final cubit = await pump(tester, FakeTasksApi(today: now));
-    await tester.tap(find.text('new project'));
+    // At the end of the tab strip, not in the account menu (decision 0011).
+    await tester.ensureVisible(find.byTooltip('New project'));
+    await tester.tap(find.byTooltip('New project'));
     await tester.pumpAndSettle();
 
     // Only one division to choose from, so no division chip.
@@ -70,6 +70,9 @@ void main() {
 
   testWidgets('a plain member does not see "new project"', (tester) async {
     await pump(tester, _PlainMember(today: now));
+    expect(find.byTooltip('New project'), findsNothing);
+    await tester.tap(find.byTooltip('Account'));
+    await tester.pumpAndSettle();
     expect(find.text('account settings'), findsOneWidget);
     expect(find.text('new project'), findsNothing);
   });
