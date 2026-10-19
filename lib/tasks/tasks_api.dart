@@ -114,6 +114,9 @@ class FakeTasksApi implements TasksApi {
   final _creatorOf = <int, int>{};
   final _notifications = <AppNotification>[];
   final _proofs = <int, Proof>{};
+
+  /// An ended repeat's last rule, by its latest task's id (decision 0013).
+  final _ended = <int, Repeat>{};
   final _tabs = [TaskTab.private, tech, taskoApp, taskoWeb];
   final _members = <TaskTab, List<Member>>{};
 
@@ -180,7 +183,8 @@ class FakeTasksApi implements TasksApi {
   /// task creates the next one, one step later, and the rule moves onto it.
   void _nextOccurrence(Task done) {
     final r = done.repeat, due = done.dueDate;
-    if (r == null || due == null || r.count == 1) return;
+    if (r == null || due == null) return;
+    if (r.count == 1) return _end(done);
     // ponytail: steps whole units and ignores weekdays; the server's nextDue is the real one.
     final next = switch (r.unit) {
       RepeatUnit.day => due.add(Duration(days: r.every)),
@@ -202,7 +206,7 @@ class FakeTasksApi implements TasksApi {
     };
     final until = r.until;
     if (until != null && next.isAfter(until.add(const Duration(days: 1)))) {
-      return;
+      return _end(done);
     }
     _replace(done.copyWith(repeat: () => null));
     _add(
@@ -227,6 +231,12 @@ class FakeTasksApi implements TasksApi {
       ),
       creator: _me,
     );
+  }
+
+  /// The repeat ran out: it ends, and stays listed until deleted.
+  void _end(Task last) {
+    _ended[last.id] = last.repeat!;
+    _replace(last.copyWith(repeat: () => null));
   }
 
   @override
@@ -277,12 +287,14 @@ class FakeTasksApi implements TasksApi {
         !canManageRepeats(_mine(_tabOf(task)))) {
       _refuse(403, 'Only a division admin or supervisor can set up a repeat');
     }
-    // Turning a rule on starts a series, or continues the one it was in.
-    return _replace(
-      task.repeat == null
-          ? task
-          : task.copyWith(seriesId: before.seriesId ?? task.id),
-    );
+    // Stopping ends the repeat; turning it on starts a series, or continues
+    // the one it was in.
+    if (task.repeat == null) {
+      if (before.repeat != null) _ended[task.id] = before.repeat!;
+      return _replace(task);
+    }
+    _ended.remove(task.id);
+    return _replace(task.copyWith(seriesId: () => before.seriesId ?? task.id));
   }
 
   static bool _sameRule(Repeat? a, Repeat? b) =>
@@ -469,18 +481,28 @@ class FakeTasksApi implements TasksApi {
   Future<List<RepeatingSeries>> repeatingFor(TaskTab division) async {
     _assertLead(division);
     final all = _tasks[division] ?? <Task>[];
+    // Live soonest first, then ended latest first, as the server sorts them.
     final live = [
       for (final t in all)
         if (t.repeat != null && t.parentId == null) t,
     ]..sort((a, b) => a.dueDate!.compareTo(b.dueDate!));
+    final ended = [
+      for (final t in all)
+        if (_ended.containsKey(t.id)) t,
+    ]..sort((a, b) => b.dueDate!.compareTo(a.dueDate!));
     return [
-      for (final t in live)
-        RepeatingSeries(t, [
-          for (final o in _occurrences(
-            t.seriesId!,
-          ).where((o) => o.onTime != null).take(5))
-            o.onTime!,
-        ]),
+      for (final t in [...live, ...ended])
+        RepeatingSeries(
+          t,
+          [
+            for (final o in _occurrences(
+              t.seriesId!,
+            ).where((o) => o.onTime != null).take(5))
+              o.onTime!,
+          ],
+          rule: t.repeat ?? _ended[t.id]!,
+          ended: t.repeat == null,
+        ),
     ];
   }
 
@@ -494,17 +516,29 @@ class FakeTasksApi implements TasksApi {
 
   @override
   Future<void> deleteSeries(int seriesId) async {
-    final open = _tasks.values
+    final head = _tasks.values
         .expand((l) => l)
-        .where((t) => t.seriesId == seriesId && t.repeat != null)
+        .where(
+          (t) =>
+              t.seriesId == seriesId &&
+              (t.repeat != null || _ended.containsKey(t.id)),
+        )
         .firstOrNull;
-    if (open == null) _refuse(404, 'No such repeating task');
-    final tab = _tabOf(open);
+    if (head == null) _refuse(404, 'No such repeating task');
+    final tab = _tabOf(head);
     _assertLead(tab);
-    if (open.status != TaskStatus.waiting) {
-      _refuse(409, 'Already started — stop repeating instead');
+    if (head.repeat != null) {
+      if (head.status != TaskStatus.waiting) {
+        _refuse(409, 'Already started — stop repeating instead');
+      }
+      _tasks[tab]!.remove(head);
     }
-    _tasks[tab]!.remove(open);
+    // The series leaves the view; its finished tasks stay (decision 0013).
+    _ended.remove(head.id);
+    final list = _tasks[tab]!;
+    for (final (i, t) in list.indexed) {
+      if (t.seriesId == seriesId) list[i] = t.copyWith(seriesId: () => null);
+    }
   }
 
   /// A series, newest due first. Finished when it was ticked done: the fake

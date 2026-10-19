@@ -113,7 +113,7 @@ class Task {
     int? Function()? assigneeId,
     DateTime? Function()? completedAt,
     Repeat? Function()? repeat,
-    int? seriesId,
+    int? Function()? seriesId,
   }) => Task(
     id: id,
     name: name ?? this.name,
@@ -128,7 +128,7 @@ class Task {
     parentId: parentId,
     completedAt: completedAt != null ? completedAt() : this.completedAt,
     repeat: repeat != null ? repeat() : this.repeat,
-    seriesId: seriesId ?? this.seriesId,
+    seriesId: seriesId != null ? seriesId() : this.seriesId,
   );
 }
 
@@ -151,14 +151,22 @@ class Occurrence {
   final String? proofUrl;
 }
 
-/// A live repeating task in a division: its open [task], which carries the
-/// rule, and whether each of its last 5 finished occurrences was on time,
-/// newest first.
+/// A repeating task set up in a division: its latest [task], its [rule], and
+/// whether each of its last 5 finished occurrences was on time, newest first.
+/// An [ended] one was stopped or ran out; it stays until a lead deletes it
+/// (arcbyte decision 0013).
 class RepeatingSeries {
-  const RepeatingSeries(this.task, this.recent);
+  const RepeatingSeries(
+    this.task,
+    this.recent, {
+    required this.rule,
+    this.ended = false,
+  });
 
   final Task task;
   final List<bool> recent;
+  final Repeat rule;
+  final bool ended;
 }
 
 enum TabKind { private, division, project }

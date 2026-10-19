@@ -12,47 +12,56 @@ import 'repeat_screen.dart';
 import 'repeating_screen.dart' show Avatar, dayLabel;
 import 'task_detail_sheet.dart';
 
-/// Pushes the history of [task]'s series (arcbyte decision 0012, hifi H8).
+/// Pushes the history of [series] (arcbyte decisions 0012, 0013, hifi H8).
 /// Completes when the user goes back, or after the repeat is stopped or
 /// deleted.
 Future<void> openSeries(
   BuildContext context, {
   required TasksApi api,
-  required Task task,
+  required RepeatingSeries series,
   required List<Member> members,
   required DateTime today,
 }) => Navigator.of(context).push(
   MaterialPageRoute<void>(
     builder: (_) => BlocProvider(
-      create: (_) => SeriesCubit(api, task.seriesId!)..load(),
-      child: _SeriesPanel(api: api, task: task, members: members, today: today),
+      create: (_) => SeriesCubit(api, series.task.seriesId!)..load(),
+      child: _SeriesPanel(
+        api: api,
+        series: series,
+        members: members,
+        today: today,
+      ),
     ),
   ),
 );
 
-/// The series menu: edit repeat, stop repeating, delete.
+/// The series menu: edit repeat, stop repeating, delete. An ended repeat
+/// offers only delete.
 enum SeriesAction { edit, stop, delete }
 
 class _SeriesPanel extends StatelessWidget {
   const _SeriesPanel({
     required this.api,
-    required this.task,
+    required this.series,
     required this.members,
     required this.today,
   });
 
   final TasksApi api;
-  final Task task;
+  final RepeatingSeries series;
   final List<Member> members;
   final DateTime today;
 
   @override
   Widget build(BuildContext context) {
     final cubit = context.read<SeriesCubit>();
+    final task = series.task;
     return BlocBuilder<SeriesCubit, List<Occurrence>?>(
       builder: (context, history) => SeriesView(
         // The list's copy until the history loads, then the live one.
         task: cubit.open ?? task,
+        rule: cubit.open?.repeat ?? series.rule,
+        ended: series.ended,
         history: history,
         members: members,
         today: today,
@@ -76,9 +85,8 @@ class _SeriesPanel extends StatelessWidget {
               await cubit.setRepeat(null);
               if (context.mounted) Navigator.pop(context);
             case SeriesAction.delete:
-              if (!await _confirmDelete(context, cubit.open ?? task, today)) {
-                return;
-              }
+              final open = series.ended ? null : (cubit.open ?? task);
+              if (!await _confirmDelete(context, open, today)) return;
               try {
                 await cubit.delete();
                 if (context.mounted) Navigator.pop(context);
@@ -92,7 +100,8 @@ class _SeriesPanel extends StatelessWidget {
   }
 }
 
-Future<bool> _confirmDelete(BuildContext context, Task open, DateTime today) =>
+/// [open] is the live repeat's open task, deleted with it; null when ended.
+Future<bool> _confirmDelete(BuildContext context, Task? open, DateTime today) =>
     showModalBottomSheet<bool>(
       context: context,
       showDragHandle: true,
@@ -113,8 +122,10 @@ Future<bool> _confirmDelete(BuildContext context, Task open, DateTime today) =>
               ),
               const SizedBox(height: 12),
               Text(
-                'the open task, due ${dayLabel(open.dueDate!, today)}, '
-                'is deleted. finished tasks stay.',
+                open == null
+                    ? 'it leaves this list. its tasks stay in the tab.'
+                    : 'the open task, due ${dayLabel(open.dueDate!, today)}, '
+                          'is deleted. finished tasks stay in the tab.',
                 style: const TextStyle(
                   fontSize: 15,
                   color: AppColors.mutedForeground,
@@ -153,6 +164,8 @@ class SeriesView extends StatelessWidget {
   const SeriesView({
     super.key,
     required this.task,
+    required this.rule,
+    this.ended = false,
     required this.history,
     required this.members,
     required this.today,
@@ -160,8 +173,12 @@ class SeriesView extends StatelessWidget {
     required this.onAction,
   });
 
-  /// The open occurrence, which carries the rule.
+  /// The latest occurrence: the open one while live.
   final Task task;
+  final Repeat rule;
+
+  /// Stopped or ran out (decision 0013): only delete is left.
+  final bool ended;
 
   /// Null while loading.
   final List<Occurrence>? history;
@@ -173,7 +190,6 @@ class SeriesView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final list = history;
-    final rule = task.repeat;
     return Scaffold(
       appBar: AppBar(
         backgroundColor: AppColors.background,
@@ -194,8 +210,10 @@ class SeriesView extends StatelessWidget {
             icon: const Icon(Icons.more_vert, color: AppColors.mutedForeground),
             itemBuilder: (_) => [
               for (final (a, label) in [
-                (SeriesAction.edit, 'edit repeat'),
-                (SeriesAction.stop, 'stop repeating'),
+                if (!ended) ...[
+                  (SeriesAction.edit, 'edit repeat'),
+                  (SeriesAction.stop, 'stop repeating'),
+                ],
                 (SeriesAction.delete, 'delete'),
               ])
                 PopupMenuItem(
@@ -217,35 +235,38 @@ class SeriesView extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(15, 16, 15, 16),
         children: [
-          if (rule != null)
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.muted,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(
-                    Icons.repeat,
-                    size: 16,
-                    color: AppColors.mutedForeground,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'creates a new task ${repeatSummary(rule, today)}, '
-                      'when this task is done.',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: AppColors.mutedForeground,
-                      ),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.muted,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  Icons.repeat,
+                  size: 16,
+                  color: AppColors.mutedForeground,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    ended
+                        ? 'ended. it created a new task '
+                              '${repeatSummary(rule, today)}, when each was '
+                              'done.'
+                        : 'creates a new task ${repeatSummary(rule, today)}, '
+                              'when this task is done.',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.mutedForeground,
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
+          ),
           const SizedBox(height: 16),
           const Text(
             'OCCURRENCES',
