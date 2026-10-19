@@ -25,6 +25,7 @@ class HomeView extends StatelessWidget {
     required this.onCreate,
     required this.onStartSearch,
     this.onMembers,
+    this.onRepeating,
     required this.onSearch,
     required this.onStopSearch,
     required this.onViewOptions,
@@ -48,6 +49,9 @@ class HomeView extends StatelessWidget {
 
   /// Null hides the members icon: only project tabs have one.
   final VoidCallback? onMembers;
+
+  /// Null hides the repeat icon: only division leads have one (0012).
+  final VoidCallback? onRepeating;
   final ValueChanged<String> onSearch;
   final VoidCallback onStopSearch;
   final VoidCallback onViewOptions;
@@ -121,6 +125,7 @@ class HomeView extends StatelessWidget {
             onSearch: onStartSearch,
             onViewOptions: onViewOptions,
             onMembers: onMembers,
+            onRepeating: onRepeating,
           );
 
     return Scaffold(
@@ -363,6 +368,7 @@ class _Toolbar extends StatelessWidget {
     required this.onSearch,
     required this.onViewOptions,
     this.onMembers,
+    this.onRepeating,
   });
 
   final int count;
@@ -372,6 +378,7 @@ class _Toolbar extends StatelessWidget {
   final VoidCallback onSearch;
   final VoidCallback onViewOptions;
   final VoidCallback? onMembers;
+  final VoidCallback? onRepeating;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -395,6 +402,12 @@ class _Toolbar extends StatelessWidget {
               Icons.group_outlined,
               color: AppColors.mutedForeground,
             ),
+          ),
+        if (onRepeating != null)
+          IconButton(
+            onPressed: onRepeating,
+            tooltip: 'Repeating',
+            icon: const Icon(Icons.repeat, color: AppColors.mutedForeground),
           ),
         IconButton(
           onPressed: onSearch,
