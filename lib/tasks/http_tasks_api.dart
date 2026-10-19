@@ -160,6 +160,7 @@ class HttpTasksApi implements TasksApi {
       canReview: json['canReview'] as bool,
       canArchive: json['canArchive'] as bool,
       canRequestExtension: json['canRequestExtension'] as bool,
+      canRepeat: json['canRepeat'] as bool? ?? false,
     );
   }
 
@@ -259,6 +260,23 @@ class HttpTasksApi implements TasksApi {
   @override
   Future<void> removeMember(TaskTab project, int userId) =>
       _send('DELETE', '/projects/${project.id}/members/$userId');
+
+  @override
+  Future<List<RepeatingSeries>> repeatingFor(TaskTab division) async => [
+    for (final s in await _get('/divisions/${division.id}/repeating'))
+      RepeatingSeries(_task(s['task']), [
+        for (final r in s['recent']) r['onTime'] as bool,
+      ]),
+  ];
+
+  @override
+  Future<List<Occurrence>> seriesHistory(int seriesId) async => [
+    for (final o in await _get('/series/$seriesId')) _occurrence(o),
+  ];
+
+  @override
+  Future<void> deleteSeries(int seriesId) =>
+      _send('DELETE', '/series/$seriesId');
 }
 
 /// The server speaks UTC ISO 8601; the app works in local time.
@@ -303,6 +321,14 @@ Task _task(dynamic j) => Task(
   parentId: j['parentId'] as int?,
   completedAt: _time(j['completedAt']),
   repeat: j['repeat'] == null ? null : _repeat(j['repeat']),
+  seriesId: j['seriesId'] as int?,
+);
+
+Occurrence _occurrence(dynamic j) => Occurrence(
+  task: _task(j['task']),
+  finishedAt: _time(j['finishedAt']),
+  onTime: j['onTime'] as bool?,
+  proofUrl: j['proofUrl'] as String?,
 );
 
 /// `until` is a day, not an instant: `YYYY-MM-DD`.

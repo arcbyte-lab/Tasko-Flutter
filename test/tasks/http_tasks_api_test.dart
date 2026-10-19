@@ -219,6 +219,66 @@ void main() {
     expect((added.user.name, added.role), ('Budi', 'viewer'));
     expect(changed.role, 'viewer');
   });
+
+  test(
+    'reads repeating series and history, and deletes a series (0012)',
+    () async {
+      final task = {..._row, 'seriesId': 3};
+      reply = (req) => switch (req.url.path) {
+        '/divisions/1/repeating' => http.Response(
+          jsonEncode([
+            {
+              'task': task,
+              'recent': [
+                {
+                  'dueDate': '2026-10-05T02:00:00Z',
+                  'finishedAt': '2026-10-05T01:00:00Z',
+                  'onTime': true,
+                },
+                {
+                  'dueDate': '2026-09-28T02:00:00Z',
+                  'finishedAt': '2026-09-30T01:00:00Z',
+                  'onTime': false,
+                },
+              ],
+            },
+          ]),
+          200,
+        ),
+        '/series/3' when req.method == 'GET' => http.Response(
+          jsonEncode([
+            {
+              'task': task,
+              'finishedAt': null,
+              'onTime': null,
+              'proofUrl': null,
+            },
+            {
+              'task': task,
+              'finishedAt': '2026-10-05T01:00:00Z',
+              'onTime': true,
+              'proofUrl': 'https://example.com/p',
+            },
+          ]),
+          200,
+        ),
+        _ => http.Response('', 204),
+      };
+      final series = (await api().repeatingFor(
+        const TaskTab(TabKind.division, 1, 'tech'),
+      )).single;
+      expect(series.task.seriesId, 3);
+      expect(series.recent, [true, false]);
+
+      final history = await api().seriesHistory(3);
+      expect(history.map((o) => o.onTime), [null, true]);
+      expect(history.last.proofUrl, 'https://example.com/p');
+      expect(history.last.finishedAt, DateTime.utc(2026, 10, 5, 1).toLocal());
+
+      await api().deleteSeries(3);
+      expect((sent.last.method, sent.last.url.path), ('DELETE', '/series/3'));
+    },
+  );
 }
 
 const _task = Task(id: 7, name: 'x', status: TaskStatus.inProgress);

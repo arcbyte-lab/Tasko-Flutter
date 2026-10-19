@@ -204,3 +204,7 @@ bool canCreateProject(TaskTab tab) =>
 bool canManageMembers(TaskTab tab) =>
     tab.kind == TabKind.project &&
     (tab.role == 'owner' || tab.role == 'person-in-charge');
+
+/// The viewer may see and set up [tab]'s repeating tasks: the same division
+/// admins and supervisors who create projects (arcbyte decision 0012).
+bool canManageRepeats(TaskTab tab) => canCreateProject(tab);

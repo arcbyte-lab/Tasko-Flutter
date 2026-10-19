@@ -279,12 +279,16 @@ class TaskDetailView extends StatelessWidget {
             _PropRow(
               icon: Icons.repeat,
               label: 'repeat',
-              onTap: onRepeat,
+              // Only a division lead sets it up; others see it (decision 0012).
+              onTap: detail!.canRepeat ? onRepeat : null,
               value: Text(
                 task.repeat == null
                     ? 'does not repeat'
                     : repeatSummary(task.repeat!, today),
-                style: const TextStyle(fontSize: 15),
+                style: TextStyle(
+                  fontSize: 15,
+                  color: detail.canRepeat ? null : AppColors.mutedForeground,
+                ),
               ),
             ),
           if (team) ...[

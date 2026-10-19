@@ -18,11 +18,12 @@ void main() {
     String tab,
     String task, {
     Future<void> Function(FakeTasksApi api)? seed,
+    FakeTasksApi? fake,
   }) async {
     tester.view.physicalSize = const Size(393 * 3, 852 * 3);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
-    api = FakeTasksApi(today: now);
+    api = fake ?? FakeTasksApi(today: now);
     await seed?.call(api);
     await tester.pumpWidget(
       MaterialApp(
@@ -97,6 +98,31 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('https://x.dev/a.png'), findsOneWidget);
     expect(find.text('approve'), findsOneWidget); // Mira reviews tasko-web
+  });
+
+  testWidgets('a member who is not a lead sees the rule but cannot change it', (
+    tester,
+  ) async {
+    await open(
+      tester,
+      'tech',
+      'Renew SSL certificate',
+      fake: _NotALead(today: now),
+      seed: (api) async {
+        final t = await api.createTask(
+          FakeTasksApi.tech,
+          name: 'Renew SSL certificate',
+          priority: Priority.high,
+          dueDate: DateTime(2026, 10, 14, 9),
+          assigneeId: 1,
+        );
+        await api.updateTask(t.copyWith(repeat: () => const Repeat()));
+      },
+    );
+    expect(find.text('every week'), findsOneWidget);
+    await tester.tap(find.text('repeat'));
+    await tester.pumpAndSettle();
+    expect(find.text('stop repeating'), findsNothing, reason: 'read-only');
   });
 
   testWidgets('a workspace task repeats; the rule is saved and can stop', (
@@ -204,4 +230,24 @@ void main() {
     expect(find.text('extension requested'), findsOneWidget);
     await tester.pump(const Duration(seconds: 3));
   });
+}
+
+/// Mira as a plain member of tech: Task Detail says she can't repeat.
+class _NotALead extends FakeTasksApi {
+  _NotALead({required super.today});
+
+  @override
+  Future<TaskDetail> detail(Task task) async {
+    final d = await super.detail(task);
+    return TaskDetail(
+      tab: d.tab,
+      subtasks: d.subtasks,
+      comments: d.comments,
+      assignee: d.assignee,
+      proof: d.proof,
+      canReview: d.canReview,
+      canArchive: d.canArchive,
+      canRequestExtension: d.canRequestExtension,
+    );
+  }
 }
