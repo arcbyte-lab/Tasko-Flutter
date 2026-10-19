@@ -266,9 +266,12 @@ class HttpTasksApi implements TasksApi {
   @override
   Future<List<RepeatingSeries>> repeatingFor(TaskTab division) async => [
     for (final s in await _get('/divisions/${division.id}/repeating'))
-      RepeatingSeries(_task(s['task']), [
-        for (final r in s['recent']) r['onTime'] as bool,
-      ]),
+      RepeatingSeries(
+        _task(s['task']),
+        [for (final r in s['recent']) r['onTime'] as bool],
+        rule: _repeat(s['rule']),
+        ended: s['ended'] as bool? ?? false,
+      ),
   ];
 
   @override

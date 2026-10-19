@@ -157,12 +157,27 @@ void main() {
     expect(find.textContaining('late · '), findsOneWidget);
   });
 
-  testWidgets('stop repeating keeps the task but ends the series', (
+  testWidgets('stop repeating keeps the task, and the series as ended', (
     tester,
   ) async {
     await home(tester, seed: backup);
     await history(tester, 'Backup check');
     await menu(tester, 'stop repeating');
+    expect(find.text('every week on Mon · ended'), findsOneWidget);
+
+    await tester.tap(find.text('Backup check').last);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('ended. it created a new task'), findsOneWidget);
+    expect(find.text('on time'), findsOneWidget, reason: 'history kept');
+    await tester.tap(find.byTooltip('Repeat options'));
+    await tester.pumpAndSettle();
+    expect(find.text('stop repeating'), findsNothing);
+    expect(find.text('edit repeat'), findsNothing);
+    await tester.tap(find.text('delete'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('its tasks stay in the tab'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'delete'));
+    await tester.pumpAndSettle();
     expect(find.text('no repeating tasks yet'), findsOneWidget);
     expect(
       (await api.tasksFor(

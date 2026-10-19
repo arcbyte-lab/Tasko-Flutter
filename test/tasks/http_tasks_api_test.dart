@@ -229,6 +229,14 @@ void main() {
           jsonEncode([
             {
               'task': task,
+              'rule': {
+                'every': 1,
+                'unit': 'week',
+                'weekdays': [1],
+                'until': null,
+                'count': null,
+              },
+              'ended': true,
               'recent': [
                 {
                   'dueDate': '2026-10-05T02:00:00Z',
@@ -269,6 +277,8 @@ void main() {
       )).single;
       expect(series.task.seriesId, 3);
       expect(series.recent, [true, false]);
+      expect(series.rule.weekdays, [1]);
+      expect(series.ended, isTrue);
 
       final history = await api().seriesHistory(3);
       expect(history.map((o) => o.onTime), [null, true]);

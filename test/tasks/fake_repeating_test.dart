@@ -82,4 +82,41 @@ void main() {
     );
     expect(on.seriesId, t.id);
   });
+
+  test(
+    'an ended repeat stays listed until deleted; its tasks stay (0013)',
+    () async {
+      final first = await weekly('Backup check', DateTime(2030, 1, 7, 9));
+      await api.setStatus(first, TaskStatus.done);
+      final open = (await api.tasksFor(
+        tech,
+      )).singleWhere((t) => t.repeat != null);
+      await api.updateTask(open.copyWith(repeat: () => null));
+
+      final ended = (await api.repeatingFor(tech)).single;
+      expect(
+        (ended.ended, ended.rule.unit, ended.task.id),
+        (true, RepeatUnit.week, open.id),
+      );
+      expect(await api.seriesHistory(first.id), hasLength(2));
+
+      await api.deleteSeries(first.id);
+      expect(await api.repeatingFor(tech), isEmpty);
+      expect((await api.tasksFor(tech)).map((t) => t.seriesId), [null, null]);
+    },
+  );
+
+  test('running out ends the repeat', () async {
+    final t = await api.createTask(
+      tech,
+      name: 'Once',
+      priority: Priority.medium,
+      dueDate: DateTime(2030, 1, 7, 9),
+      repeat: const Repeat(count: 1),
+    );
+    await api.setStatus(t, TaskStatus.done);
+    final s = (await api.repeatingFor(tech)).single;
+    expect((s.ended, s.task.repeat), (true, null));
+    expect(s.recent, [true]);
+  });
 }

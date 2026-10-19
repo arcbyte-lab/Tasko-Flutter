@@ -94,10 +94,10 @@ class HomePanel extends StatelessWidget {
                     tab: state.activeTab!,
                     today: state.today,
                   ),
-                  onOpen: (context, task) => openSeries(
+                  onOpen: (context, series) => openSeries(
                     context,
                     api: api,
-                    task: task,
+                    series: series,
                     members: state.members,
                     today: state.today,
                   ),

@@ -16,7 +16,7 @@ Future<void> openRepeating(
   required List<Member> members,
   required DateTime today,
   required Future<void> Function(BuildContext context) onNew,
-  Future<void> Function(BuildContext context, Task task)? onOpen,
+  Future<void> Function(BuildContext context, RepeatingSeries series)? onOpen,
 }) {
   final api = context.read<TasksApi>();
   return Navigator.of(context).push(
@@ -38,8 +38,8 @@ Future<void> openRepeating(
                 },
                 onOpen: onOpen == null
                     ? null
-                    : (task) async {
-                        await onOpen(context, task);
+                    : (series) async {
+                        await onOpen(context, series);
                         await cubit.load();
                       },
               ),
@@ -51,8 +51,9 @@ Future<void> openRepeating(
   );
 }
 
-/// The live repeating tasks, soonest first: name, rule and next due date,
-/// the assignee, and a dot per recent occurrence, oldest on the left.
+/// The repeating tasks, live ones soonest first, then ended ones: name, rule
+/// and next due date (or "ended"), the assignee, and a dot per recent
+/// occurrence, oldest on the left.
 class RepeatingView extends StatelessWidget {
   const RepeatingView({
     super.key,
@@ -71,7 +72,7 @@ class RepeatingView extends StatelessWidget {
   final List<Member> members;
   final DateTime today;
   final VoidCallback onNew;
-  final ValueChanged<Task>? onOpen;
+  final ValueChanged<RepeatingSeries>? onOpen;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -109,7 +110,7 @@ class RepeatingView extends StatelessWidget {
                   .firstOrNull
                   ?.user,
               today: today,
-              onTap: onOpen == null ? null : () => onOpen!(s.task),
+              onTap: onOpen == null ? null : () => onOpen!(s),
             ),
         ],
       ),
@@ -150,11 +151,18 @@ class _SeriesRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(t.name, style: const TextStyle(fontSize: 15)),
+                  Text(
+                    t.name,
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: series.ended ? AppColors.mutedForeground : null,
+                    ),
+                  ),
                   const SizedBox(height: 4),
                   Text(
-                    '${repeatSummary(t.repeat!, today)} · '
-                    'next ${dayLabel(t.dueDate!, today)}',
+                    // An ended one stays until a lead deletes it (0013).
+                    '${repeatSummary(series.rule, today)} · '
+                    '${series.ended ? 'ended' : 'next ${dayLabel(t.dueDate!, today)}'}',
                     style: const TextStyle(
                       fontSize: 12,
                       color: AppColors.mutedForeground,
