@@ -11,6 +11,7 @@ class CreateTaskState {
     this.dueDate,
     this.members = const [],
     this.assignee,
+    this.repeat,
     this.submitting = false,
   });
 
@@ -24,9 +25,15 @@ class CreateTaskState {
 
   /// Defaults to the current user, the first member.
   final Member? assignee;
+
+  /// Division leads only (arcbyte decision 0012).
+  final Repeat? repeat;
   final bool submitting;
 
-  bool get canSubmit => name.trim().isNotEmpty && !submitting;
+  /// A repeating task needs a due date: the rule steps from it.
+  bool get missingDue => repeat != null && dueDate == null;
+
+  bool get canSubmit => name.trim().isNotEmpty && !submitting && !missingDue;
 
   CreateTaskState copyWith({
     String? name,
@@ -35,6 +42,7 @@ class CreateTaskState {
     DateTime? dueDate,
     List<Member>? members,
     Member? assignee,
+    Repeat? Function()? repeat,
     bool? submitting,
   }) => CreateTaskState(
     name: name ?? this.name,
@@ -43,6 +51,7 @@ class CreateTaskState {
     dueDate: dueDate ?? this.dueDate,
     members: members ?? this.members,
     assignee: assignee ?? this.assignee,
+    repeat: repeat != null ? repeat() : this.repeat,
     submitting: submitting ?? this.submitting,
   );
 }
@@ -73,6 +82,9 @@ class CreateTaskCubit extends Cubit<CreateTaskState> {
   void setDueDate(DateTime v) => emit(state.copyWith(dueDate: v));
   void setAssignee(Member v) => emit(state.copyWith(assignee: v));
 
+  /// Null stops it repeating.
+  void setRepeat(Repeat? v) => emit(state.copyWith(repeat: () => v));
+
   /// Null when the title is blank. A blank note is stored as null.
   Future<Task?> submit() async {
     if (!state.canSubmit) return null;
@@ -85,6 +97,7 @@ class CreateTaskCubit extends Cubit<CreateTaskState> {
       priority: state.priority,
       dueDate: state.dueDate,
       assigneeId: state.assignee?.user.id,
+      repeat: state.repeat,
     );
   }
 }

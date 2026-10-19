@@ -13,6 +13,7 @@ import 'create_task_sheet.dart';
 import 'home_view.dart';
 import 'members_screen.dart';
 import 'repeating_screen.dart';
+import 'series_screen.dart';
 import 'new_project_sheet.dart';
 import 'task_detail_sheet.dart';
 
@@ -80,6 +81,8 @@ class HomePanel extends StatelessWidget {
             : null,
         onRepeating: canManageRepeats(state.activeTab ?? TaskTab.private)
             ? () async {
+                // Pushed routes sit above the provider: hand the api down.
+                final api = context.read<TasksApi>();
                 await openRepeating(
                   context,
                   tab: state.activeTab!,
@@ -87,8 +90,15 @@ class HomePanel extends StatelessWidget {
                   today: state.today,
                   onNew: (context) => showCreateTaskSheet(
                     context,
-                    api: context.read<TasksApi>(),
+                    api: api,
                     tab: state.activeTab!,
+                    today: state.today,
+                  ),
+                  onOpen: (context, task) => openSeries(
+                    context,
+                    api: api,
+                    task: task,
+                    members: state.members,
                     today: state.today,
                   ),
                 );
