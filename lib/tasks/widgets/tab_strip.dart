@@ -8,6 +8,7 @@ import '../models.dart';
 /// label; scrolls sideways (arcbyte decision 0002). Keeps the active tab in
 /// view when it changes from a swipe on the list. The underline sits at
 /// [position], so it slides and stretches between tabs with the pages.
+/// "+ new project" ends the strip when [onNewProject] is set (decision 0011).
 class TabStrip extends StatefulWidget {
   const TabStrip({
     super.key,
@@ -15,6 +16,7 @@ class TabStrip extends StatefulWidget {
     required this.active,
     required this.position,
     required this.onSelect,
+    this.onNewProject,
   });
 
   final List<TaskTab> tabs;
@@ -23,6 +25,7 @@ class TabStrip extends StatefulWidget {
   /// The page position: 0 is the first tab, 1.5 halfway to the third.
   final ValueListenable<double> position;
   final ValueChanged<TaskTab> onSelect;
+  final VoidCallback? onNewProject;
 
   @override
   State<TabStrip> createState() => _TabStripState();
@@ -58,7 +61,7 @@ class _TabStripState extends State<TabStrip> {
         .where((t) => t.kind == TabKind.project)
         .toList();
 
-    Widget group(String label, List<TaskTab> items) => Column(
+    Widget group(String label, List<TaskTab> items, {Widget? end}) => Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
@@ -74,6 +77,7 @@ class _TabStripState extends State<TabStrip> {
                 widget.onSelect,
                 key: _keys.putIfAbsent(t, GlobalKey.new),
               ),
+            ?end,
           ],
         ),
       ],
@@ -84,7 +88,15 @@ class _TabStripState extends State<TabStrip> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (workspaces.isNotEmpty) group('WORKSPACES', workspaces),
-        if (projects.isNotEmpty) group('PROJECTS', projects),
+        // Shown with no projects yet too, so a lead can make the first one.
+        if (projects.isNotEmpty || widget.onNewProject != null)
+          group(
+            'PROJECTS',
+            projects,
+            end: widget.onNewProject == null
+                ? null
+                : _NewProject(widget.onNewProject!),
+          ),
       ],
     );
 
@@ -133,6 +145,38 @@ class _Tab extends StatelessWidget {
             fontWeight: FontWeight.w500,
             color: active ? AppColors.foreground : AppColors.mutedForeground,
           ),
+        ),
+      ),
+    ),
+  );
+}
+
+class _NewProject extends StatelessWidget {
+  const _NewProject(this.onTap);
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Tooltip(
+    message: 'New project',
+    child: InkWell(
+      onTap: onTap,
+      child: const Padding(
+        padding: EdgeInsets.fromLTRB(8, 6, 8, 12),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.add, size: 16, color: AppColors.mutedForeground),
+            SizedBox(width: 4),
+            Text(
+              'new project',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: AppColors.mutedForeground,
+              ),
+            ),
+          ],
         ),
       ),
     ),
