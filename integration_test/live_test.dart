@@ -383,6 +383,63 @@ void main() {
       await logOut();
     });
 
+    // Repeating tasks (arcbyte decision 0012). Ana is tech's admin; Mira is
+    // a plain member there.
+    await step('a division lead sets up a repeat', () async {
+      await logIn('ana@arcbyte.dev');
+      await waitFor(find.text('welcome, Ana'));
+      await openTask('tech', 'Renew SSL certificate');
+      await tester.tap(find.text('repeat'));
+      // A new rule: the screen has no "stop repeating" yet.
+      await waitFor(find.widgetWithText(TextButton, 'done'));
+      await tester.tap(find.widgetWithText(TextButton, 'done'));
+      // The Repeat screen's own summary says "every week" too: wait for it
+      // to go, so the next tap lands on the sheet's scrim.
+      await waitFor(find.widgetWithText(TextButton, 'done'), gone: true);
+      await waitFor(find.textContaining('every week'));
+      await settle();
+      await closeSheet();
+    });
+
+    await step(
+      'the repeat icon opens the repeating view and its history',
+      () async {
+        // Only once the detail sheet has gone can the icon take the tap.
+        final icon = find.byTooltip('Repeating').hitTestable();
+        await waitFor(icon);
+        await tester.tap(icon);
+        await waitFor(find.text('tech repeating'));
+        await waitFor(find.text('Renew SSL certificate').last);
+        await tester.tap(find.text('Renew SSL certificate').last);
+        await waitFor(find.text('OCCURRENCES'));
+        expect(
+          find.textContaining('creates a new task every week'),
+          findsWidgets,
+        );
+        expect(find.text('waiting'), findsWidgets);
+        // Two pages deep: pageBack would see two back buttons mid-transition.
+        tester
+            .state<NavigatorState>(find.byType(Navigator).first)
+            .popUntil((r) => r.isFirst);
+        await settle();
+        await logOut();
+      },
+    );
+
+    await step('a member sees no repeat icon and a read-only rule', () async {
+      await logIn('mira@arcbyte.dev');
+      await waitFor(find.text('welcome, Mira'));
+      await openTab('tech');
+      expect(find.byTooltip('Repeating'), findsNothing);
+      await openTask('tech', 'Renew SSL certificate');
+      expect(find.textContaining('every week'), findsOneWidget);
+      await tester.tap(find.text('repeat'));
+      await settle();
+      expect(find.text('stop repeating'), findsNothing);
+      await closeSheet();
+      await logOut();
+    });
+
     await step('an inactive user cannot log in', () async {
       await logIn('hadi@arcbyte.dev');
       await waitFor(find.text('Invalid email or password'));
