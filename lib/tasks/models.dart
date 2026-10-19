@@ -69,6 +69,7 @@ class Task {
     this.parentId,
     this.completedAt,
     this.repeat,
+    this.seriesId,
   });
 
   final int id;
@@ -99,6 +100,10 @@ class Task {
   /// Workspace tasks only.
   final Repeat? repeat;
 
+  /// The first task's id, shared by every occurrence of a repeating task
+  /// (arcbyte decision 0012). Null if it never repeated.
+  final int? seriesId;
+
   Task copyWith({
     String? name,
     String? Function()? description,
@@ -108,6 +113,7 @@ class Task {
     int? Function()? assigneeId,
     DateTime? Function()? completedAt,
     Repeat? Function()? repeat,
+    int? seriesId,
   }) => Task(
     id: id,
     name: name ?? this.name,
@@ -122,7 +128,37 @@ class Task {
     parentId: parentId,
     completedAt: completedAt != null ? completedAt() : this.completedAt,
     repeat: repeat != null ? repeat() : this.repeat,
+    seriesId: seriesId ?? this.seriesId,
   );
+}
+
+/// One occurrence of a repeating task, and how it went. [onTime] is null
+/// while it is open. It counts as finished when it was sent for review, or
+/// else ticked done (arcbyte decision 0012).
+class Occurrence {
+  const Occurrence({
+    required this.task,
+    this.finishedAt,
+    this.onTime,
+    this.proofUrl,
+  });
+
+  final Task task;
+  final DateTime? finishedAt;
+  final bool? onTime;
+
+  /// The latest proof's link.
+  final String? proofUrl;
+}
+
+/// A live repeating task in a division: its open [task], which carries the
+/// rule, and whether each of its last 5 finished occurrences was on time,
+/// newest first.
+class RepeatingSeries {
+  const RepeatingSeries(this.task, this.recent);
+
+  final Task task;
+  final List<bool> recent;
 }
 
 enum TabKind { private, division, project }
@@ -219,6 +255,7 @@ class TaskDetail {
     this.canReview = false,
     this.canArchive = false,
     this.canRequestExtension = false,
+    this.canRepeat = false,
   });
 
   /// The tab the task lives in.
@@ -239,6 +276,10 @@ class TaskDetail {
 
   /// The viewer is a member, not management.
   final bool canRequestExtension;
+
+  /// A workspace's top-level task, and the viewer is one of its division's
+  /// admins or supervisors (arcbyte decision 0012).
+  final bool canRepeat;
 }
 
 /// A `notifications` row, with its text already written by the

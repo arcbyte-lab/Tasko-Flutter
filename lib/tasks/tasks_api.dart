@@ -80,6 +80,17 @@ abstract interface class TasksApi {
   /// Removes [userId]; the viewer's own id leaves the project. Their open
   /// tasks there lose their assignee.
   Future<void> removeMember(TaskTab project, int userId);
+
+  /// [division]'s live repeating tasks, soonest due first. Leads only
+  /// (arcbyte decision 0012).
+  Future<List<RepeatingSeries>> repeatingFor(TaskTab division);
+
+  /// Every occurrence of a series, newest first.
+  Future<List<Occurrence>> seriesHistory(int seriesId);
+
+  /// Deletes the series' open task, and its rule with it, only while it is
+  /// waiting; a started one fails with 409 and can only be stopped.
+  Future<void> deleteSeries(int seriesId);
 }
 
 /// In-memory [TasksApi] seeded with the mockups' sample data, dated relative
@@ -87,7 +98,7 @@ abstract interface class TasksApi {
 ///
 /// The viewer is Mira: owner of tasko-web (so she reviews there), a plain
 /// member of tasko-app (so she can ask for extensions there), and a
-/// supervisor of tech (so she can create projects). Membership rules match
+/// supervisor of tech (so she can create projects and set up repeats). Membership rules match
 /// Tasko-API's, refused with the same [ApiException] statuses.
 class FakeTasksApi implements TasksApi {
   FakeTasksApi({required DateTime today})
@@ -153,11 +164,66 @@ class FakeTasksApi implements TasksApi {
         createdAt: DateTime.now(),
       );
     }
-    return _replace(
+    final done = _replace(
       task.copyWith(
         status: status,
         completedAt: () => status == TaskStatus.done ? DateTime.now() : null,
       ),
+    );
+    if (status == TaskStatus.done) _nextOccurrence(done);
+    return _find(done.id, personal: done.personal);
+  }
+
+  /// As Tasko-API does (arcbyte decisions 0009, 0012): finishing a repeating
+  /// task creates the next one, one step later, and the rule moves onto it.
+  void _nextOccurrence(Task done) {
+    final r = done.repeat, due = done.dueDate;
+    if (r == null || due == null || r.count == 1) return;
+    // ponytail: steps whole units and ignores weekdays; the server's nextDue is the real one.
+    final next = switch (r.unit) {
+      RepeatUnit.day => due.add(Duration(days: r.every)),
+      RepeatUnit.week => due.add(Duration(days: 7 * r.every)),
+      RepeatUnit.month => DateTime(
+        due.year,
+        due.month + r.every,
+        due.day,
+        due.hour,
+        due.minute,
+      ),
+      RepeatUnit.year => DateTime(
+        due.year + r.every,
+        due.month,
+        due.day,
+        due.hour,
+        due.minute,
+      ),
+    };
+    final until = r.until;
+    if (until != null && next.isAfter(until.add(const Duration(days: 1)))) {
+      return;
+    }
+    _replace(done.copyWith(repeat: () => null));
+    _add(
+      _tabOf(done),
+      Task(
+        id: _nextId(),
+        name: done.name,
+        description: done.description,
+        priority: done.priority,
+        dueDate: next,
+        assigneeId: done.assigneeId,
+        requiredProofType: done.requiredProofType,
+        status: TaskStatus.waiting,
+        repeat: Repeat(
+          every: r.every,
+          unit: r.unit,
+          weekdays: r.weekdays,
+          until: r.until,
+          count: r.count == null ? null : r.count! - 1,
+        ),
+        seriesId: done.seriesId,
+      ),
+      creator: _me,
     );
   }
 
@@ -196,7 +262,29 @@ class FakeTasksApi implements TasksApi {
   }
 
   @override
-  Future<Task> updateTask(Task task) async => _replace(task);
+  Future<Task> updateTask(Task task) async {
+    final before = _find(task.id, personal: task.personal);
+    if (!_sameRule(before.repeat, task.repeat) &&
+        !canManageRepeats(_mine(_tabOf(task)))) {
+      _refuse(403, 'Only a division admin or supervisor can set up a repeat');
+    }
+    // Turning a rule on starts a series, or continues the one it was in.
+    return _replace(
+      task.repeat == null
+          ? task
+          : task.copyWith(seriesId: before.seriesId ?? task.id),
+    );
+  }
+
+  static bool _sameRule(Repeat? a, Repeat? b) =>
+      a == b ||
+      (a != null &&
+          b != null &&
+          a.every == b.every &&
+          a.unit == b.unit &&
+          a.until == b.until &&
+          a.count == b.count &&
+          a.weekdays.join() == b.weekdays.join());
 
   @override
   Future<TaskDetail> detail(Task task) async {
@@ -217,6 +305,10 @@ class FakeTasksApi implements TasksApi {
       canReview: team && tab == taskoWeb,
       canArchive: team && _creatorOf[task.id] == _me.id,
       canRequestExtension: team && tab != taskoWeb && task.assigneeId == _me.id,
+      canRepeat:
+          tab.kind == TabKind.division &&
+          task.parentId == null &&
+          canManageRepeats(_mine(tab)),
     );
   }
 
@@ -363,6 +455,78 @@ class FakeTasksApi implements TasksApi {
     }
     if (self) _tabs.remove(project);
   }
+
+  @override
+  Future<List<RepeatingSeries>> repeatingFor(TaskTab division) async {
+    _assertLead(division);
+    final all = _tasks[division] ?? <Task>[];
+    final live = [
+      for (final t in all)
+        if (t.repeat != null && t.parentId == null) t,
+    ]..sort((a, b) => a.dueDate!.compareTo(b.dueDate!));
+    return [
+      for (final t in live)
+        RepeatingSeries(t, [
+          for (final o in _occurrences(
+            t.seriesId!,
+          ).where((o) => o.onTime != null).take(5))
+            o.onTime!,
+        ]),
+    ];
+  }
+
+  @override
+  Future<List<Occurrence>> seriesHistory(int seriesId) async {
+    final list = _occurrences(seriesId);
+    if (list.isEmpty) _refuse(404, 'No such series');
+    _assertLead(_tabOf(list.first.task));
+    return list;
+  }
+
+  @override
+  Future<void> deleteSeries(int seriesId) async {
+    final open = _tasks.values
+        .expand((l) => l)
+        .where((t) => t.seriesId == seriesId && t.repeat != null)
+        .firstOrNull;
+    if (open == null) _refuse(404, 'No such repeating task');
+    final tab = _tabOf(open);
+    _assertLead(tab);
+    if (open.status != TaskStatus.waiting) {
+      _refuse(409, 'Already started — stop repeating instead');
+    }
+    _tasks[tab]!.remove(open);
+  }
+
+  /// A series, newest due first. Finished when it was ticked done: the fake
+  /// keeps no review date.
+  List<Occurrence> _occurrences(int seriesId) {
+    final list = [
+      for (final t in _tasks.values.expand((l) => l))
+        if (t.seriesId == seriesId) t,
+    ]..sort((a, b) => b.dueDate!.compareTo(a.dueDate!));
+    return [
+      for (final t in list)
+        Occurrence(
+          task: t,
+          finishedAt: t.status == TaskStatus.done ? t.completedAt : null,
+          onTime: t.status == TaskStatus.done
+              ? !t.completedAt!.isAfter(t.dueDate!)
+              : null,
+          proofUrl: _proofs[t.id]?.url,
+        ),
+    ];
+  }
+
+  void _assertLead(TaskTab division) {
+    if (!canManageRepeats(_mine(division))) {
+      _refuse(403, 'Only a division admin or supervisor can see repeats');
+    }
+  }
+
+  Task _find(int id, {bool personal = false}) => _tasks.values
+      .expand((l) => l)
+      .firstWhere((t) => t.id == id && t.personal == personal);
 
   /// [tab] with the viewer's role in it.
   TaskTab _mine(TaskTab tab) =>

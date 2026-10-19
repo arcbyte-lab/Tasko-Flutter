@@ -223,4 +223,14 @@ void main() {
     expect(canManageMembers(tab(TabKind.division, 'admin')), isFalse);
     expect(canManageMembers(TaskTab.private), isFalse);
   });
+
+  test('who can set up repeats (0012)', () {
+    TaskTab tab(TabKind kind, String? role) =>
+        TaskTab(kind, 1, 'x', role: role);
+    expect(canManageRepeats(tab(TabKind.division, 'admin')), isTrue);
+    expect(canManageRepeats(tab(TabKind.division, 'supervisor')), isTrue);
+    expect(canManageRepeats(tab(TabKind.division, 'member')), isFalse);
+    expect(canManageRepeats(tab(TabKind.project, 'owner')), isFalse);
+    expect(canManageRepeats(TaskTab.private), isFalse);
+  });
 }
