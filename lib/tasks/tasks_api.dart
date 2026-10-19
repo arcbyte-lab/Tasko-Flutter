@@ -22,7 +22,8 @@ abstract interface class TasksApi {
   Future<List<Member>> membersOf(TaskTab tab);
 
   /// Creates a task in [tab]: a personal task in `private`, otherwise a team
-  /// task. The server fills in `code`, `division_id` and `creator_id`.
+  /// task. The server fills in `code`, `division_id` and `creator_id`. A
+  /// [repeat] needs a division lead and a due date (arcbyte decision 0012).
   Future<Task> createTask(
     TaskTab tab, {
     required String name,
@@ -30,6 +31,7 @@ abstract interface class TasksApi {
     required Priority priority,
     DateTime? dueDate,
     int? assigneeId,
+    Repeat? repeat,
   });
 
   /// Saves [task]'s editable fields: name, description, priority, due date
@@ -243,12 +245,17 @@ class FakeTasksApi implements TasksApi {
     required Priority priority,
     DateTime? dueDate,
     int? assigneeId,
+    Repeat? repeat,
   }) async {
     final personal = tab.kind == TabKind.private;
+    if (repeat != null && !canManageRepeats(_mine(tab))) {
+      _refuse(403, 'Only a division admin or supervisor can set up a repeat');
+    }
+    final id = _nextId();
     return _add(
       tab,
       Task(
-        id: _nextId(),
+        id: id,
         name: name,
         description: description,
         priority: priority,
@@ -256,6 +263,8 @@ class FakeTasksApi implements TasksApi {
         assigneeId: personal ? null : assigneeId,
         status: personal ? TaskStatus.todo : TaskStatus.waiting,
         personal: personal,
+        repeat: repeat,
+        seriesId: repeat == null ? null : id,
       ),
       creator: _me,
     );

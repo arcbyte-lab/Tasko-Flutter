@@ -68,4 +68,18 @@ void main() {
     expect(task.status, TaskStatus.todo);
     expect(task.description, 'tonight');
   });
+
+  test('a repeating task needs a due date, and starts its series', () async {
+    final cubit = await cubitFor(FakeTasksApi.tech);
+    cubit
+      ..setName('Backup check')
+      ..setRepeat(const Repeat(weekdays: [1]));
+    expect(cubit.state.missingDue, isTrue);
+    expect(cubit.state.canSubmit, isFalse);
+
+    cubit.setDueDate(DateTime(2026, 10, 12, 9));
+    final task = (await cubit.submit())!;
+    expect(task.repeat?.weekdays, [1]);
+    expect(task.seriesId, task.id);
+  });
 }

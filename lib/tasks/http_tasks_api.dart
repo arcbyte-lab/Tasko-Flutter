@@ -119,6 +119,7 @@ class HttpTasksApi implements TasksApi {
     required Priority priority,
     DateTime? dueDate,
     int? assigneeId,
+    Repeat? repeat,
   }) async => _task(
     await _send('POST', '${_tabPath(tab)}/tasks', {
       'name': name,
@@ -126,6 +127,7 @@ class HttpTasksApi implements TasksApi {
       'priority': priority.level,
       'dueDate': _date(dueDate),
       'assigneeId': ?assigneeId,
+      'repeat': ?_repeatJson(repeat),
     }),
   );
 

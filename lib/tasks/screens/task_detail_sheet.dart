@@ -252,7 +252,7 @@ class TaskDetailView extends StatelessWidget {
           _PropRow(
             icon: Icons.adjust,
             label: 'status',
-            value: _StatusPill(task.status),
+            value: StatusPill(task.status),
           ),
           _PropRow(
             icon: Icons.flag_outlined,
@@ -613,8 +613,9 @@ class _PropRow extends StatelessWidget {
   );
 }
 
-class _StatusPill extends StatelessWidget {
-  const _StatusPill(this.status);
+/// A task's status as a pill, in the H4 colours.
+class StatusPill extends StatelessWidget {
+  const StatusPill(this.status, {super.key});
 
   final TaskStatus status;
 

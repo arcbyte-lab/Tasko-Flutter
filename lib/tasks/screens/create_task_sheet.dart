@@ -9,6 +9,7 @@ import '../task_rules.dart';
 import '../tasks_api.dart';
 import '../widgets/pickers.dart';
 import '../widgets/task_row.dart';
+import 'repeat_screen.dart';
 
 /// Opens the create sheet for [tab]. Resolves to the new task, or null when
 /// the sheet is dismissed.
@@ -47,6 +48,7 @@ class _CreateTaskPanel extends StatelessWidget {
         state: state,
         today: today,
         isTeam: cubit.isTeam,
+        canRepeat: canManageRepeats(cubit.tab),
         onName: cubit.setName,
         onNote: cubit.setNote,
         onDueDate: () async {
@@ -70,6 +72,15 @@ class _CreateTaskPanel extends StatelessWidget {
           );
           if (v != null) cubit.setAssignee(v);
         },
+        onRepeat: () async {
+          // Until a due date is picked, the rule starts from today.
+          final v = await openRepeatScreen(
+            context,
+            initial: state.repeat,
+            due: state.dueDate ?? today,
+          );
+          if (v != null) cubit.setRepeat(v.$1);
+        },
         // Proof types are not decided yet (arcbyte lofi ticket T12).
         onProof: () => showToast(context, 'action: choose proof type'),
         onDone: () async {
@@ -82,31 +93,35 @@ class _CreateTaskPanel extends StatelessWidget {
 }
 
 /// Title, note, the chips, and "done". Personal tasks get only the due date
-/// and priority chips.
+/// and priority chips; a division lead also gets repeat (decision 0012).
 class CreateTaskForm extends StatelessWidget {
   const CreateTaskForm({
     super.key,
     required this.state,
     required this.today,
     required this.isTeam,
+    this.canRepeat = false,
     required this.onName,
     required this.onNote,
     required this.onDueDate,
     required this.onPriority,
     required this.onAssignee,
     required this.onProof,
+    this.onRepeat,
     required this.onDone,
   });
 
   final CreateTaskState state;
   final DateTime today;
   final bool isTeam;
+  final bool canRepeat;
   final ValueChanged<String> onName;
   final ValueChanged<String> onNote;
   final VoidCallback onDueDate;
   final VoidCallback onPriority;
   final VoidCallback onAssignee;
   final VoidCallback onProof;
+  final VoidCallback? onRepeat;
   final VoidCallback onDone;
 
   @override
@@ -169,6 +184,14 @@ class CreateTaskForm extends StatelessWidget {
                             '${formatTime(TimeOfDay.fromDateTime(due))}',
                   onTap: onDueDate,
                 ),
+                if (canRepeat)
+                  SheetChip(
+                    icon: Icons.repeat,
+                    label: state.repeat == null
+                        ? 'repeat'
+                        : repeatSummary(state.repeat!, today),
+                    onTap: onRepeat,
+                  ),
                 SheetChip(
                   icon: Icons.flag_outlined,
                   iconColor: TaskRow.priorityColor(state.priority),
@@ -189,6 +212,13 @@ class CreateTaskForm extends StatelessWidget {
                 ],
               ],
             ),
+            if (state.missingDue) ...[
+              const SizedBox(height: 8),
+              const Text(
+                'a repeating task needs a due date',
+                style: TextStyle(fontSize: 12, color: AppColors.destructive),
+              ),
+            ],
             const SizedBox(height: 24),
             Align(
               alignment: Alignment.centerRight,
