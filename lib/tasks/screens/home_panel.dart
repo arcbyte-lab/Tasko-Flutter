@@ -12,6 +12,7 @@ import '../tasks_api.dart';
 import 'create_task_sheet.dart';
 import 'home_view.dart';
 import 'members_screen.dart';
+import 'repeating_screen.dart';
 import 'new_project_sheet.dart';
 import 'task_detail_sheet.dart';
 
@@ -75,6 +76,23 @@ class HomePanel extends StatelessWidget {
                 );
                 // Joined, left or re-roled: the tabs and roles may differ.
                 await cubit.reloadTabs();
+              }
+            : null,
+        onRepeating: canManageRepeats(state.activeTab ?? TaskTab.private)
+            ? () async {
+                await openRepeating(
+                  context,
+                  tab: state.activeTab!,
+                  members: state.members,
+                  today: state.today,
+                  onNew: (context) => showCreateTaskSheet(
+                    context,
+                    api: context.read<TasksApi>(),
+                    tab: state.activeTab!,
+                    today: state.today,
+                  ),
+                );
+                await cubit.reload();
               }
             : null,
         onSearch: cubit.search,
