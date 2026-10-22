@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tasko/tasks/activity_cubit.dart';
 import 'package:tasko/tasks/activity_text.dart';
 import 'package:tasko/tasks/http_tasks_api.dart';
 import 'package:tasko/tasks/models.dart';
@@ -179,6 +180,17 @@ void main() {
       );
     },
   );
+
+  test('a page that lands after the screen closed is dropped', () async {
+    // Found on the phone: leaving the log while Task Detail was open.
+    final cubit = ActivityCubit(api, inTech);
+    final loading = cubit.load();
+    final more = cubit.more();
+    await cubit.close();
+    await loading;
+    await more;
+    expect(cubit.state.items, isNull);
+  });
 
   group('the fake keeps the server’s rules', () {
     // Mira is tech's supervisor, tasko-web's owner and a plain member of tasko-app.
