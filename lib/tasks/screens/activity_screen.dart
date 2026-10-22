@@ -76,10 +76,11 @@ class ActivityView extends StatelessWidget {
       today.month,
       today.day,
     ).difference(DateTime(d.year, d.month, d.day)).inDays;
+    // Upper case, as every group label is (hifi H9).
     return switch (days) {
-      0 => 'today',
-      1 => 'yesterday',
-      _ => dayLabel(d, today),
+      0 => 'TODAY',
+      1 => 'YESTERDAY',
+      _ => dayLabel(d, today).toUpperCase(),
     };
   }
 
@@ -101,10 +102,30 @@ class ActivityView extends StatelessWidget {
       ),
       body: switch (items) {
         null => const Center(child: CircularProgressIndicator()),
+        // As the repeating view's empty state. A task made before the log
+        // existed has no rows, hence the hint.
         [] => const Center(
-          child: Text(
-            'no activity yet',
-            style: TextStyle(fontSize: 15, color: AppColors.mutedForeground),
+          child: Padding(
+            padding: EdgeInsets.only(bottom: 120),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.history, size: 40, color: AppColors.controlBorder),
+                SizedBox(height: 12),
+                Text(
+                  'no activity yet',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'changes from now on show up here',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppColors.mutedForeground,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         final list => ListView(
@@ -146,14 +167,7 @@ class _DayHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-    child: Text(
-      label,
-      style: const TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.w500,
-        color: AppColors.mutedForeground,
-      ),
-    ),
+    child: Text(label, style: groupLabelStyle()),
   );
 }
 
@@ -209,7 +223,9 @@ class _EntryRow extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   where == null || where!.isEmpty ? time : '$time · $where',
+                  // Times in mono, as on the repeat screen (hifi H9).
                   style: const TextStyle(
+                    fontFamily: fontMono,
                     fontSize: 12,
                     color: AppColors.mutedForeground,
                   ),
