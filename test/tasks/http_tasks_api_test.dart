@@ -289,6 +289,94 @@ void main() {
       expect((sent.last.method, sent.last.url.path), ('DELETE', '/series/3'));
     },
   );
+
+  test(
+    'activity: one route per log, a page of rows and the next cursor',
+    () async {
+      reply = (_) => http.Response(
+        jsonEncode({
+          'items': [
+            {
+              'id': 41,
+              'action': 'task.assigned',
+              'actor': {'id': 2, 'name': 'Ana'},
+              'subject': {'type': 'task', 'id': 1, 'label': 'Set up CI'},
+              'target': {'id': 3, 'name': 'Budi'},
+              'tab': {'kind': 'project', 'id': 1, 'name': 'tasko-app'},
+              'changes': {
+                'assigneeId': [1, 3],
+                'assigneeName': 'Budi',
+              },
+              'createdAt': '2026-10-20T02:00:00Z',
+            },
+            {
+              'id': 40,
+              'action': 'member.left',
+              'actor': {'id': null, 'name': 'Gone'},
+              'subject': {'type': 'member', 'id': 9, 'label': 'Gone'},
+              'target': null,
+              'tab': {'kind': 'project', 'id': 4, 'name': null},
+              'changes': null,
+              'createdAt': '2026-10-19T02:00:00Z',
+            },
+          ],
+          'next': 40,
+        }),
+        200,
+      );
+      final page = await api().activity(const TaskLog(_task), before: 50);
+      expect(
+        sent.single.url.toString(),
+        'https://api.test/tasks/7/activity?before=50',
+      );
+      expect(page.next, 40);
+      final [assigned, left] = page.items;
+      expect(
+        (
+          assigned.actor!.name,
+          assigned.target!.name,
+          assigned.subject.label,
+          assigned.tab.kind,
+        ),
+        ('Ana', 'Budi', 'Set up CI', TabKind.project),
+      );
+      expect(assigned.changes['assigneeName'], 'Budi');
+      expect(assigned.createdAt, DateTime.utc(2026, 10, 20, 2).toLocal());
+      expect((left.actor, left.actorName, left.tab.name), (null, 'Gone', ''));
+      expect(left.changes, isEmpty);
+
+      await api().activity(
+        const TabLog(TaskTab(TabKind.project, 2, 'tasko-web')),
+      );
+      await api().activity(const TabLog(TaskTab(TabKind.division, 1, 'tech')));
+      await api().activity(const UserLog(User(id: 3, name: 'Budi')));
+      expect(
+        [for (final r in sent.skip(1)) r.url.path],
+        ['/projects/2/activity', '/divisions/1/activity', '/users/3/activity'],
+      );
+    },
+  );
+
+  test(
+    'Task Detail reads canViewLog, false when the server leaves it out',
+    () async {
+      Map<String, Object?> detail([bool? log]) => {
+        'tab': {'kind': 'project', 'id': 1, 'name': 'tasko-app'},
+        'subtasks': [],
+        'comments': [],
+        'assignee': null,
+        'proof': null,
+        'canReview': false,
+        'canArchive': false,
+        'canRequestExtension': false,
+        'canViewLog': ?log,
+      };
+      reply = (_) => http.Response(jsonEncode(detail(true)), 200);
+      expect((await api().detail(_task)).canViewLog, isTrue);
+      reply = (_) => http.Response(jsonEncode(detail()), 200);
+      expect((await api().detail(_task)).canViewLog, isFalse);
+    },
+  );
 }
 
 const _task = Task(id: 7, name: 'x', status: TaskStatus.inProgress);

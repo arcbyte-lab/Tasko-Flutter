@@ -163,6 +163,7 @@ class HttpTasksApi implements TasksApi {
       canArchive: json['canArchive'] as bool,
       canRequestExtension: json['canRequestExtension'] as bool,
       canRepeat: json['canRepeat'] as bool? ?? false,
+      canViewLog: json['canViewLog'] as bool? ?? false,
     );
   }
 
@@ -269,7 +270,7 @@ class HttpTasksApi implements TasksApi {
       RepeatingSeries(
         _task(s['task']),
         [for (final r in s['recent']) r['onTime'] as bool],
-        rule: _repeat(s['rule']),
+        rule: repeatFromJson(s['rule']),
         ended: s['ended'] as bool? ?? false,
       ),
   ];
@@ -282,6 +283,26 @@ class HttpTasksApi implements TasksApi {
   @override
   Future<void> deleteSeries(int seriesId) =>
       _send('DELETE', '/series/$seriesId');
+
+  @override
+  Future<({List<ActivityEntry> items, int? next})> activity(
+    ActivityScope scope, {
+    int? before,
+  }) async {
+    final path = switch (scope) {
+      TaskLog(:final task) => '/tasks/${task.id}',
+      TabLog(:final tab) =>
+        '/${tab.kind == TabKind.project ? 'projects' : 'divisions'}/${tab.id}',
+      UserLog(:final user) => '/users/${user.id}',
+    };
+    final json = await _get(
+      '$path/activity${before == null ? '' : '?before=$before'}',
+    );
+    return (
+      items: [for (final e in json['items']) _entry(e)],
+      next: json['next'] as int?,
+    );
+  }
 }
 
 /// The server speaks UTC ISO 8601; the app works in local time.
@@ -325,7 +346,7 @@ Task _task(dynamic j) => Task(
   code: j['code'] as String?,
   parentId: j['parentId'] as int?,
   completedAt: _time(j['completedAt']),
-  repeat: j['repeat'] == null ? null : _repeat(j['repeat']),
+  repeat: j['repeat'] == null ? null : repeatFromJson(j['repeat']),
   seriesId: j['seriesId'] as int?,
 );
 
@@ -336,8 +357,32 @@ Occurrence _occurrence(dynamic j) => Occurrence(
   proofUrl: j['proofUrl'] as String?,
 );
 
+ActivityEntry _entry(dynamic j) {
+  final actor = j['actor'], subject = j['subject'], tab = j['tab'];
+  return ActivityEntry(
+    id: j['id'] as int,
+    action: j['action'] as String,
+    actor: actor['id'] == null ? null : _user(actor),
+    actorName: actor['name'] as String? ?? '',
+    subject: (
+      type: subject['type'] as String,
+      id: subject['id'] as int,
+      label: subject['label'] as String,
+    ),
+    target: j['target'] == null ? null : _user(j['target']),
+    tab: TaskTab(
+      TabKind.values.byName(tab['kind'] as String),
+      tab['id'] as int,
+      tab['name'] as String? ?? '',
+    ),
+    changes: (j['changes'] as Map<String, dynamic>?) ?? const {},
+    createdAt: _time(j['createdAt'])!,
+  );
+}
+
+/// A rule as the server writes it, in a task or in a log row's `changes`.
 /// `until` is a day, not an instant: `YYYY-MM-DD`.
-Repeat _repeat(dynamic j) => Repeat(
+Repeat repeatFromJson(dynamic j) => Repeat(
   every: j['every'] as int,
   unit: RepeatUnit.values.byName(j['unit'] as String),
   weekdays: [for (final d in j['weekdays']) d as int],
