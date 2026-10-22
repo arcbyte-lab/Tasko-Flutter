@@ -151,6 +151,7 @@ void main() {
     testWidgets('an empty log says so', (tester) async {
       await view(tester, (items: const [], next: null), () {});
       expect(find.text('no activity yet'), findsOneWidget);
+      expect(find.text('changes from now on show up here'), findsOneWidget);
       expect(find.text('load more'), findsNothing);
     });
 
@@ -166,8 +167,8 @@ void main() {
           ],
           next: 1,
         ), () => more++);
-        expect(find.text('today'), findsOneWidget);
-        expect(find.text('yesterday'), findsOneWidget);
+        expect(find.text('TODAY'), findsOneWidget);
+        expect(find.text('YESTERDAY'), findsOneWidget);
         expect(find.text('Budi started Rotate keys'), findsNWidgets(3));
         expect(find.text('09:05'), findsOneWidget);
         await tester.tap(find.text('load more'));
