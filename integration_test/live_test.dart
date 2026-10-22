@@ -440,6 +440,62 @@ void main() {
       await logOut();
     });
 
+    // Activity logs (arcbyte decision 0014). Ana's repeat above is a
+    // `repeat.set` row in tech's log.
+    Future<void> home() async {
+      tester
+          .state<NavigatorState>(find.byType(Navigator).first)
+          .popUntil((r) => r.isFirst);
+      await settle();
+    }
+
+    await step('a lead opens the division log, then a task from it', () async {
+      await logIn('ana@arcbyte.dev');
+      await waitFor(find.text('welcome, Ana'));
+      await openTab('tech');
+      final icon = find.byTooltip('Activity').hitTestable();
+      await waitFor(icon);
+      await tester.tap(icon);
+      await waitFor(find.text('tech activity'));
+      final row = find.textContaining('Ana made Renew SSL certificate repeat');
+      await waitFor(row);
+      await tester.tap(row.first);
+      await waitFor(find.text('priority'));
+      await home();
+    });
+
+    await step('the task log, from Task Detail’s menu', () async {
+      await openTask('tech', 'Renew SSL certificate');
+      await tester.tap(find.byTooltip('More'));
+      await settle();
+      await tester.tap(find.text('activity'));
+      await waitFor(find.text('Renew SSL certificate activity'));
+      await waitFor(find.textContaining('Ana made it repeat'));
+      await home();
+    });
+
+    await step('the assignee picker opens in Task Detail', () async {
+      await openTask('tech', 'Renew SSL certificate');
+      await tester.tap(find.text('assignee'));
+      await waitFor(find.text('Budi'));
+      await home();
+    });
+
+    await step('my activity, and a member has no log icon', () async {
+      await tester.tap(find.byTooltip('Account'));
+      await settle();
+      await tester.tap(find.text('my activity'));
+      await waitFor(find.text('Ana activity'));
+      await waitFor(find.textContaining('Ana made Renew SSL certificate'));
+      await home();
+      await logOut();
+      await logIn('mira@arcbyte.dev');
+      await waitFor(find.text('welcome, Mira'));
+      await openTab('tech');
+      expect(find.byTooltip('Activity'), findsNothing);
+      await logOut();
+    });
+
     await step('an inactive user cannot log in', () async {
       await logIn('hadi@arcbyte.dev');
       await waitFor(find.text('Invalid email or password'));

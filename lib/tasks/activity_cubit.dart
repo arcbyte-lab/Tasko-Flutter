@@ -13,8 +13,11 @@ class ActivityCubit extends Cubit<ActivityState> {
   final TasksApi _api;
   final ActivityScope scope;
 
+  // A page can land after the screen has gone (closed while Task Detail was
+  // open, say): then it is dropped.
   Future<void> load() async {
     final page = await _api.activity(scope);
+    if (isClosed) return;
     emit((items: page.items, next: page.next));
   }
 
@@ -25,6 +28,7 @@ class ActivityCubit extends Cubit<ActivityState> {
     if (next == null) return;
     emit((items: items, next: null));
     final page = await _api.activity(scope, before: next);
+    if (isClosed) return;
     emit((items: [...?items, ...page.items], next: page.next));
   }
 }
