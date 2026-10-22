@@ -357,6 +357,13 @@ void main() {
     },
   );
 
+  test('task: one team task by id, for a log row', () async {
+    reply = (_) => http.Response(jsonEncode(_row), 200);
+    final task = await api().task(7);
+    expect((sent.single.method, sent.single.url.path), ('GET', '/tasks/7'));
+    expect((task.id, task.code), (7, 'TW-0007'));
+  });
+
   test(
     'Task Detail reads canViewLog, false when the server leaves it out',
     () async {

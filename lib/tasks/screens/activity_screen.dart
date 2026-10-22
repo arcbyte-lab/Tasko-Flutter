@@ -7,6 +7,7 @@ import '../activity_text.dart';
 import '../models.dart';
 import '../tasks_api.dart';
 import 'repeating_screen.dart' show Avatar, dayLabel;
+import 'task_detail_sheet.dart';
 
 /// Pushes [scope]'s activity log (arcbyte decision 0014). The first page
 /// loads before the screen opens, so a refused log (403) shows only its
@@ -37,6 +38,22 @@ Future<void> openActivity(
               scope: UserLog(user),
               today: today,
             ),
+            // A deleted task (404) or one outside the viewer's tabs (403)
+            // shows only the error toast. A task's own log is that task.
+            onOpenTask: scope is TaskLog
+                ? null
+                : (id) async {
+                    final task = await api.task(id);
+                    if (!context.mounted) return;
+                    await showTaskDetailSheet(
+                      context,
+                      api: api,
+                      task: task,
+                      today: today,
+                    );
+                    // Changes made there are new rows.
+                    await cubit.load();
+                  },
           ),
         ),
       ),
@@ -54,6 +71,7 @@ class ActivityView extends StatelessWidget {
     required this.today,
     required this.onMore,
     this.onOpenUser,
+    this.onOpenTask,
   });
 
   final ActivityScope scope;
@@ -63,6 +81,10 @@ class ActivityView extends StatelessWidget {
 
   /// Opens a person's own log. Null hides the link.
   final ValueChanged<User>? onOpenUser;
+
+  /// Opens Task Detail by task id, for rows about a task. Null: rows don't
+  /// open.
+  final ValueChanged<int>? onOpenTask;
 
   String get _name => switch (scope) {
     TaskLog(:final task) => task.name,
@@ -140,6 +162,9 @@ class ActivityView extends StatelessWidget {
                 onOpenUser: e.actor == null || onOpenUser == null
                     ? null
                     : () => onOpenUser!(e.actor!),
+                onOpen: e.subject.type != 'task' || onOpenTask == null
+                    ? null
+                    : () => onOpenTask!(e.subject.id),
               ),
             ],
             if (state.next != null)
@@ -177,10 +202,12 @@ class _EntryRow extends StatelessWidget {
     required this.text,
     this.where,
     this.onOpenUser,
+    this.onOpen,
   });
 
   final ActivityEntry entry;
   final String text;
+  final VoidCallback? onOpen;
 
   /// The tab, in a user's log, where rows come from many.
   final String? where;
@@ -195,45 +222,48 @@ class _EntryRow extends StatelessWidget {
         entry.actor ??
         User(id: 0, name: entry.actorName.isEmpty ? '?' : entry.actorName);
     final avatar = Avatar(actor, radius: 12);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppColors.border)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (onOpenUser == null)
-            avatar
-          else
-            Tooltip(
-              message: '${actor.name}’s activity',
-              child: InkWell(
-                customBorder: const CircleBorder(),
-                onTap: onOpenUser,
-                child: avatar,
+    return InkWell(
+      onTap: onOpen,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: AppColors.border)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (onOpenUser == null)
+              avatar
+            else
+              Tooltip(
+                message: '${actor.name}’s activity',
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: onOpenUser,
+                  child: avatar,
+                ),
+              ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(text, style: const TextStyle(fontSize: 15)),
+                  const SizedBox(height: 2),
+                  Text(
+                    where == null || where!.isEmpty ? time : '$time · $where',
+                    // Times in mono, as on the repeat screen (hifi H9).
+                    style: const TextStyle(
+                      fontFamily: fontMono,
+                      fontSize: 12,
+                      color: AppColors.mutedForeground,
+                    ),
+                  ),
+                ],
               ),
             ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(text, style: const TextStyle(fontSize: 15)),
-                const SizedBox(height: 2),
-                Text(
-                  where == null || where!.isEmpty ? time : '$time · $where',
-                  // Times in mono, as on the repeat screen (hifi H9).
-                  style: const TextStyle(
-                    fontFamily: fontMono,
-                    fontSize: 12,
-                    color: AppColors.mutedForeground,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -6,7 +6,9 @@ import 'package:tasko/tasks/activity_cubit.dart';
 import 'package:tasko/tasks/home_cubit.dart';
 import 'package:tasko/tasks/models.dart';
 import 'package:tasko/tasks/screens/activity_screen.dart';
+import 'package:tasko/tasks/http_tasks_api.dart' show ApiException;
 import 'package:tasko/tasks/screens/home_panel.dart';
+import 'package:tasko/tasks/screens/task_detail_sheet.dart';
 import 'package:tasko/tasks/tasks_api.dart';
 
 /// The activity logs (arcbyte decision 0014). In the fake, Mira is tech's
@@ -82,6 +84,34 @@ void main() {
     await tap(tester, find.byTooltip('Budi’s activity').first);
     expect(find.text('Budi activity'), findsOneWidget);
     expect(find.text('Budi sent Review PR #42 to review'), findsNWidgets(2));
+  });
+
+  testWidgets('a task row opens Task Detail', (tester) async {
+    await home(tester);
+    await tap(tester, find.text('tasko-web'));
+    await tap(tester, activity);
+    await tap(tester, find.text('Ana approved Fix footer links'));
+    expect(find.byType(TaskDetailView), findsOneWidget);
+  });
+
+  testWidgets('a series row opens nothing', (tester) async {
+    await home(tester);
+    await tap(tester, find.text('tech'));
+    await tap(tester, activity);
+    await tap(tester, find.text('Mira deleted the repeat Rotate backups'));
+    expect(find.byType(TaskDetailView), findsNothing);
+  });
+
+  test('the fake finds one team task: 404 when missing', () async {
+    final api = FakeTasksApi(today: now);
+    final deploy = (await api.tasksFor(
+      FakeTasksApi.taskoWeb,
+    )).firstWhere((t) => t.name == 'Deploy staging');
+    expect((await api.task(deploy.id)).name, 'Deploy staging');
+    await expectLater(
+      api.task(999),
+      throwsA(isA<ApiException>().having((e) => e.status, 'status', 404)),
+    );
   });
 
   testWidgets('my activity, from the account menu', (tester) async {

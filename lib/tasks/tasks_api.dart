@@ -100,6 +100,10 @@ abstract interface class TasksApi {
     ActivityScope scope, {
     int? before,
   });
+
+  /// One team task, for opening it from a log row. 404 once deleted, 403
+  /// outside the viewer's tabs.
+  Future<Task> task(int id);
 }
 
 /// In-memory [TasksApi] seeded with the mockups' sample data, dated relative
@@ -343,6 +347,17 @@ class FakeTasksApi implements TasksApi {
           canManageRepeats(_mine(tab)),
       canViewLog: team && _opensLog(tab),
     );
+  }
+
+  @override
+  Future<Task> task(int id) async {
+    final t = _tasks.values
+        .expand((l) => l)
+        .where((t) => t.id == id && !t.personal)
+        .firstOrNull;
+    if (t == null) _refuse(404, 'No such task');
+    if (_memberIn(_tabOf(t), _me.id) == null) _refuse(403, 'Not a member');
+    return t;
   }
 
   bool _opensLog(TaskTab tab) => tab.kind == TabKind.project

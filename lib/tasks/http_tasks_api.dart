@@ -285,6 +285,9 @@ class HttpTasksApi implements TasksApi {
       _send('DELETE', '/series/$seriesId');
 
   @override
+  Future<Task> task(int id) async => _task(await _get('/tasks/$id'));
+
+  @override
   Future<({List<ActivityEntry> items, int? next})> activity(
     ActivityScope scope, {
     int? before,
