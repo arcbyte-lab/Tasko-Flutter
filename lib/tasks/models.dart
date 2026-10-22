@@ -264,6 +264,7 @@ class TaskDetail {
     this.canArchive = false,
     this.canRequestExtension = false,
     this.canRepeat = false,
+    this.canViewLog = false,
   });
 
   /// The tab the task lives in.
@@ -288,6 +289,73 @@ class TaskDetail {
   /// A workspace's top-level task, and the viewer is one of its division's
   /// admins or supervisors (arcbyte decision 0012).
   final bool canRepeat;
+
+  /// The viewer leads the task's tab: its division's admins and supervisors,
+  /// or its project's owners and persons-in-charge (arcbyte decision 0014).
+  final bool canViewLog;
+}
+
+/// Which activity log to open (arcbyte decision 0014). Only leads open one;
+/// a user also opens their own.
+sealed class ActivityScope {
+  const ActivityScope();
+}
+
+/// One task's history; a sub-task's rows are on its parent.
+final class TaskLog extends ActivityScope {
+  const TaskLog(this.task);
+  final Task task;
+}
+
+/// A project's rows, or a division's own tab plus its projects' project and
+/// member rows.
+final class TabLog extends ActivityScope {
+  const TabLog(this.tab);
+  final TaskTab tab;
+}
+
+/// What a user did, and what was done to them.
+final class UserLog extends ActivityScope {
+  const UserLog(this.user);
+  final User user;
+}
+
+/// An `activity_logs` row. Names are as they were when it was written, so a
+/// row still reads after its user or subject is deleted.
+class ActivityEntry {
+  const ActivityEntry({
+    required this.id,
+    required this.action,
+    required this.actorName,
+    required this.subject,
+    required this.tab,
+    required this.createdAt,
+    this.actor,
+    this.target,
+    this.changes = const {},
+  });
+
+  final int id;
+
+  /// `task.created`, `member.added`, …: the list is in arcbyte decision 0014.
+  final String action;
+
+  /// Null once the user is deleted; [actorName] stays.
+  final User? actor;
+  final String actorName;
+
+  /// `type` is `task`, `project`, `member` or `series`.
+  final ({String type, int id, String label}) subject;
+
+  /// The person the action landed on.
+  final User? target;
+
+  /// Where it happened. Its name is empty once a project is deleted.
+  final TaskTab tab;
+
+  /// An edit is `{field: [before, after]}`; other actions carry their own keys.
+  final Map<String, dynamic> changes;
+  final DateTime createdAt;
 }
 
 /// A `notifications` row, with its text already written by the

@@ -93,6 +93,13 @@ abstract interface class TasksApi {
   /// Deletes the series' open task, and its rule with it, only while it is
   /// waiting; a started one fails with 409 and can only be stopped.
   Future<void> deleteSeries(int seriesId);
+
+  /// 50 rows of [scope]'s log, newest first, older than [before]; [next] is
+  /// the [before] for the next page, or null at the end.
+  Future<({List<ActivityEntry> items, int? next})> activity(
+    ActivityScope scope, {
+    int? before,
+  });
 }
 
 /// In-memory [TasksApi] seeded with the mockups' sample data, dated relative
@@ -114,6 +121,10 @@ class FakeTasksApi implements TasksApi {
   final _creatorOf = <int, int>{};
   final _notifications = <AppNotification>[];
   final _proofs = <int, Proof>{};
+
+  /// A fixed log covering every action, oldest first. The fake's own changes
+  /// don't add to it.
+  final _activity = <ActivityEntry>[];
 
   /// An ended repeat's last rule, by its latest task's id (decision 0013).
   final _ended = <int, Repeat>{};
@@ -330,7 +341,58 @@ class FakeTasksApi implements TasksApi {
           tab.kind == TabKind.division &&
           task.parentId == null &&
           canManageRepeats(_mine(tab)),
+      canViewLog: team && _opensLog(tab),
     );
+  }
+
+  bool _opensLog(TaskTab tab) => tab.kind == TabKind.project
+      ? canViewProjectLog(_mine(tab))
+      : canViewDivisionLog(_mine(tab));
+
+  /// The server's filters and access rules (arcbyte decision 0014). Every
+  /// project is in [tech], the only division.
+  @override
+  Future<({List<ActivityEntry> items, int? next})> activity(
+    ActivityScope scope, {
+    int? before,
+  }) async {
+    bool tabRow(ActivityEntry e) =>
+        e.action.startsWith('project.') || e.action.startsWith('member.');
+    Never leadsOnly() => _refuse(403, 'Only a lead can open this log');
+    final bool Function(ActivityEntry) shows;
+    switch (scope) {
+      case TaskLog(:final task):
+        if (!_opensLog(_tabOf(task))) leadsOnly();
+        shows = (e) => e.subject.type == 'task' && e.subject.id == task.id;
+      case TabLog(:final tab):
+        if (_memberIn(tab, _me.id) == null) _refuse(403, 'Not a member');
+        if (!_opensLog(tab)) leadsOnly();
+        shows = tab.kind == TabKind.project
+            ? (e) => e.tab == tab
+            : (e) =>
+                  e.tab == tab || (e.tab.kind == TabKind.project && tabRow(e));
+      case UserLog(:final user):
+        final self = user.id == _me.id;
+        if (!self && !(_opensLog(tech) && _memberIn(tech, user.id) != null)) {
+          _refuse(
+            403,
+            'Only they or a lead of their division can open this log',
+          );
+        }
+        shows = (e) =>
+            (e.actor?.id == user.id || e.target?.id == user.id) &&
+            (self ||
+                _opensLog(e.tab) ||
+                (e.tab.kind == TabKind.project &&
+                    tabRow(e) &&
+                    _opensLog(tech)));
+    }
+    final rows = [
+      for (final e in _activity.reversed)
+        if (shows(e) && (before == null || e.id < before)) e,
+    ];
+    final items = rows.take(50).toList();
+    return (items: items, next: rows.length > 50 ? items.last.id : null);
   }
 
   @override
@@ -590,6 +652,316 @@ class FakeTasksApi implements TasksApi {
       _refuse(403, 'Only an owner can make or remove an owner');
   static Never _notMember() => _refuse(404, 'Not a member of this project');
 
+  void _seedActivity(DateTime now) {
+    Task named(String name) =>
+        _tasks.values.expand((l) => l).firstWhere((t) => t.name == name);
+    final deploy = named('Deploy staging');
+    final pr = named('Review PR #42');
+    final footer = named('Fix footer links');
+    final ci = named('Set up CI');
+    const dimas = User(id: 5, name: 'Dimas');
+    const fajar = User(id: 7, name: 'Fajar');
+    const gita = User(id: 8, name: 'Gita');
+    String day(int offset) =>
+        _today.add(Duration(days: offset)).toUtc().toIso8601String();
+    const weekly = {
+      'every': 1,
+      'unit': 'week',
+      'weekdays': [1],
+      'until': null,
+      'count': null,
+    };
+    final monThu = {
+      ...weekly,
+      'weekdays': [1, 4],
+    };
+    // A repeat in tech, which has no seeded tasks; its rows point at ids
+    // that aren't in the fake.
+    const backups = (type: 'task', id: 900, label: 'Rotate backups');
+    const nextBackups = (type: 'task', id: 901, label: 'Rotate backups');
+
+    var hoursAgo = 24 * 30;
+    void log(
+      String action,
+      User actor,
+      TaskTab tab,
+      ({String type, int id, String label}) subject, {
+      User? target,
+      Map<String, dynamic> changes = const {},
+    }) {
+      _activity.add(
+        ActivityEntry(
+          id: _activity.length + 1,
+          action: action,
+          actor: actor,
+          actorName: actor.name,
+          subject: subject,
+          target: target,
+          tab: tab,
+          changes: changes,
+          createdAt: now.subtract(Duration(hours: hoursAgo)),
+        ),
+      );
+      hoursAgo -= 20;
+    }
+
+    ({String type, int id, String label}) task(Task t) =>
+        (type: 'task', id: t.id, label: t.name);
+    ({String type, int id, String label}) member(User u) =>
+        (type: 'member', id: u.id, label: u.name);
+
+    log(
+      'project.created',
+      _me,
+      taskoWeb,
+      (type: 'project', id: taskoWeb.id, label: 'tasko-web'),
+      changes: {'dueDate': null},
+    );
+    log(
+      'member.added',
+      _me,
+      taskoWeb,
+      member(_budi),
+      target: _budi,
+      changes: {'role': 'member'},
+    );
+    log(
+      'member.added',
+      _me,
+      taskoWeb,
+      member(gita),
+      target: gita,
+      changes: {'role': 'member'},
+    );
+    log(
+      'member.role_changed',
+      _me,
+      taskoWeb,
+      member(_ana),
+      target: _ana,
+      changes: {
+        'role': ['member', 'person-in-charge'],
+      },
+    );
+    log(
+      'member.removed',
+      _me,
+      taskoWeb,
+      member(gita),
+      target: gita,
+      changes: {'role': 'member', 'unassignedTaskIds': []},
+    );
+    log(
+      'member.left',
+      fajar,
+      taskoApp,
+      member(fajar),
+      changes: {
+        'role': 'member',
+        'unassignedTaskIds': [ci.id],
+      },
+    );
+    log(
+      'task.created',
+      _ana,
+      taskoWeb,
+      task(deploy),
+      target: _me,
+      changes: {'name': 'Deploy to staging', 'priority': 2},
+    );
+    log(
+      'task.renamed',
+      _ana,
+      taskoWeb,
+      task(deploy),
+      changes: {
+        'name': ['Deploy to staging', 'Deploy staging'],
+      },
+    );
+    log(
+      'task.description_changed',
+      _ana,
+      taskoWeb,
+      task(deploy),
+      changes: {
+        'description': [null, 'Use the preview channel'],
+      },
+    );
+    log(
+      'task.priority_changed',
+      _ana,
+      taskoWeb,
+      task(deploy),
+      changes: {
+        'priority': [2, 3],
+      },
+    );
+    log(
+      'task.due_changed',
+      _ana,
+      taskoWeb,
+      task(deploy),
+      changes: {
+        'dueDate': [day(3), day(1)],
+      },
+    );
+    log(
+      'subtask.added',
+      _me,
+      taskoWeb,
+      task(deploy),
+      changes: {'subtask': 'Run smoke tests'},
+    );
+    log(
+      'comment.added',
+      _budi,
+      taskoWeb,
+      task(deploy),
+      target: _me,
+      changes: {'body': 'Staging keys are in the vault'},
+    );
+    log(
+      'task.unassigned',
+      _me,
+      taskoWeb,
+      task(pr),
+      target: dimas,
+      changes: {
+        'assigneeId': [5, 3],
+        'assigneeName': 'Dimas',
+      },
+    );
+    log(
+      'task.assigned',
+      _me,
+      taskoWeb,
+      task(pr),
+      target: _budi,
+      changes: {
+        'assigneeId': [5, 3],
+        'assigneeName': 'Budi',
+      },
+    );
+    log(
+      'task.started',
+      _budi,
+      taskoWeb,
+      task(pr),
+      changes: {
+        'status': ['waiting', 'in_progress'],
+      },
+    );
+    log(
+      'task.sent_to_review',
+      _budi,
+      taskoWeb,
+      task(pr),
+      changes: {
+        'status': ['in_progress', 'review'],
+        'proofUrl': 'https://drive.example/pr42.png',
+      },
+    );
+    log(
+      'task.rejected',
+      _me,
+      taskoWeb,
+      task(pr),
+      target: _budi,
+      changes: {
+        'status': ['review', 'in_progress'],
+        'reason': 'Screenshot is blurry',
+      },
+    );
+    log(
+      'task.sent_to_review',
+      _budi,
+      taskoWeb,
+      task(pr),
+      changes: {
+        'status': ['in_progress', 'review'],
+        'proofUrl': 'https://drive.example/pr42-2.png',
+      },
+    );
+    log(
+      'task.completed',
+      _me,
+      taskoWeb,
+      task(footer),
+      changes: {
+        'status': ['in_progress', 'done'],
+      },
+    );
+    log(
+      'task.reopened',
+      _me,
+      taskoWeb,
+      task(footer),
+      changes: {
+        'status': ['done', 'waiting'],
+      },
+    );
+    log(
+      'task.approved',
+      _ana,
+      taskoWeb,
+      task(footer),
+      target: _me,
+      changes: {
+        'status': ['review', 'done'],
+      },
+    );
+    log(
+      'deadline.requested',
+      _me,
+      taskoApp,
+      task(ci),
+      changes: {
+        'dueDate': [day(1), day(4)],
+        'reason': 'Runner quota',
+      },
+    );
+    log(
+      'repeat.set',
+      _me,
+      tech,
+      backups,
+      changes: {
+        'repeat': [null, weekly],
+      },
+    );
+    log(
+      'repeat.changed',
+      _me,
+      tech,
+      backups,
+      changes: {
+        'repeat': [weekly, monThu],
+      },
+    );
+    log(
+      'repeat.next_created',
+      _me,
+      tech,
+      nextBackups,
+      target: _budi,
+      changes: {'fromTaskId': 900, 'dueDate': day(4)},
+    );
+    log(
+      'repeat.stopped',
+      _me,
+      tech,
+      nextBackups,
+      changes: {
+        'repeat': [monThu, null],
+      },
+    );
+    log('series.deleted', _me, tech, (
+      type: 'series',
+      id: 900,
+      label: 'Rotate backups',
+    ));
+  }
+
   TaskTab _tabOf(Task task) => _tasks.entries
       .firstWhere(
         (e) =>
@@ -800,6 +1172,8 @@ class FakeTasksApi implements TasksApi {
       actor: _budi,
       read: true,
     );
+
+    _seedActivity(now);
 
     _comments[login.id] = [
       Comment(

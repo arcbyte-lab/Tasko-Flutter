@@ -208,3 +208,11 @@ bool canManageMembers(TaskTab tab) =>
 /// The viewer may see and set up [tab]'s repeating tasks: the same division
 /// admins and supervisors who create projects (arcbyte decision 0012).
 bool canManageRepeats(TaskTab tab) => canCreateProject(tab);
+
+/// The viewer may open [tab]'s activity log: a division's admins and
+/// supervisors (arcbyte decision 0014).
+bool canViewDivisionLog(TaskTab tab) => canCreateProject(tab);
+
+/// The viewer may open [tab]'s activity log: a project's owners and
+/// persons-in-charge. Leading its division is not enough (decision 0014).
+bool canViewProjectLog(TaskTab tab) => canManageMembers(tab);
