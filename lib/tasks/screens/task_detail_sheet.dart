@@ -11,6 +11,7 @@ import '../widgets/pickers.dart';
 import 'repeat_screen.dart';
 import '../widgets/reason_sheets.dart';
 import '../widgets/task_row.dart';
+import 'activity_screen.dart';
 
 /// Opens Task Detail for [task]. Completes once the sheet has closed and
 /// any title or note edit is saved, so the list can reload after it.
@@ -30,7 +31,7 @@ Future<void> showTaskDetailSheet(
     elevation: 0,
     builder: (_) => BlocProvider.value(
       value: cubit,
-      child: _TaskDetailPanel(today: today),
+      child: _TaskDetailPanel(api: api, today: today),
     ),
   );
   await cubit.flush();
@@ -39,8 +40,10 @@ Future<void> showTaskDetailSheet(
 
 /// Wires [TaskDetailView] to the cubit, the pickers and the follow-up sheets.
 class _TaskDetailPanel extends StatelessWidget {
-  const _TaskDetailPanel({required this.today});
+  const _TaskDetailPanel({required this.api, required this.today});
 
+  /// The sheet's route sits above the provider, so it is handed down.
+  final TasksApi api;
   final DateTime today;
 
   @override
@@ -80,9 +83,7 @@ class _TaskDetailPanel extends StatelessWidget {
             if (v != null) await cubit.setRepeat(v.$1);
           },
           onAssignee: () async {
-            final members = await context.read<TasksApi>().membersOf(
-              state.detail!.tab,
-            );
+            final members = await api.membersOf(state.detail!.tab);
             if (!context.mounted) return;
             final v = await showPicker<Member>(
               context,
@@ -129,6 +130,12 @@ class _TaskDetailPanel extends StatelessWidget {
             if (context.mounted) showToast(context, 'extension requested');
           },
           onArchive: () => showToast(context, 'action: archive task'),
+          onActivity: () => openActivity(
+            context,
+            api: api,
+            scope: TaskLog(task),
+            today: today,
+          ),
         );
       },
     );
@@ -159,6 +166,7 @@ class TaskDetailView extends StatelessWidget {
     required this.onReject,
     required this.onRequestExtension,
     required this.onArchive,
+    this.onActivity,
   });
 
   final TaskDetailState state;
@@ -183,6 +191,9 @@ class TaskDetailView extends StatelessWidget {
   final VoidCallback onReject;
   final VoidCallback onRequestExtension;
   final VoidCallback onArchive;
+
+  /// Opens the task's log; shown only when the server sets `canViewLog`.
+  final VoidCallback? onActivity;
 
   @override
   Widget build(BuildContext context) {
@@ -222,6 +233,7 @@ class TaskDetailView extends StatelessWidget {
             canArchive: detail?.canArchive ?? false,
             onRequestExtension: onRequestExtension,
             onArchive: onArchive,
+            onActivity: detail?.canViewLog ?? false ? onActivity : null,
           ),
           _EditableText(
             key: const ValueKey('title'),
@@ -421,6 +433,7 @@ class _Header extends StatelessWidget {
     required this.canArchive,
     required this.onRequestExtension,
     required this.onArchive,
+    this.onActivity,
   });
 
   final String tabName;
@@ -429,6 +442,9 @@ class _Header extends StatelessWidget {
   final bool canArchive;
   final VoidCallback onRequestExtension;
   final VoidCallback onArchive;
+
+  /// Null hides "activity": only the tab's leads open a task's log (0014).
+  final VoidCallback? onActivity;
 
   @override
   Widget build(BuildContext context) {
@@ -453,7 +469,7 @@ class _Header extends StatelessWidget {
             Text(code!, style: muted.copyWith(fontFamily: fontMono)),
           ],
           const Spacer(),
-          if (canExtend || canArchive)
+          if (canExtend || canArchive || onActivity != null)
             PopupMenuButton<VoidCallback>(
               tooltip: 'More',
               icon: const Icon(
@@ -467,6 +483,11 @@ class _Header extends StatelessWidget {
               ),
               onSelected: (action) => action(),
               itemBuilder: (_) => [
+                if (onActivity != null)
+                  PopupMenuItem(
+                    value: onActivity,
+                    child: item('activity', 'leads only'),
+                  ),
                 if (canExtend)
                   PopupMenuItem(
                     value: onRequestExtension,
