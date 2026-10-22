@@ -9,6 +9,7 @@ import '../widgets/reason_sheets.dart';
 import '../widgets/view_options_sheet.dart';
 import '../task_rules.dart';
 import '../tasks_api.dart';
+import 'activity_screen.dart';
 import 'create_task_sheet.dart';
 import 'home_view.dart';
 import 'members_screen.dart';
@@ -105,6 +106,22 @@ class HomePanel extends StatelessWidget {
                 await cubit.reload();
               }
             : null,
+        onActivity: switch (state.activeTab) {
+          final tab? when canViewDivisionLog(tab) || canViewProjectLog(tab) =>
+            () => openActivity(
+              context,
+              api: context.read<TasksApi>(),
+              scope: TabLog(tab),
+              today: state.today,
+            ),
+          _ => null,
+        },
+        onMyActivity: () => openActivity(
+          context,
+          api: context.read<TasksApi>(),
+          scope: UserLog(state.user!),
+          today: state.today,
+        ),
         onSearch: cubit.search,
         onStopSearch: cubit.stopSearch,
         onViewOptions: () async {

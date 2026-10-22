@@ -26,6 +26,8 @@ class HomeView extends StatelessWidget {
     required this.onStartSearch,
     this.onMembers,
     this.onRepeating,
+    this.onActivity,
+    this.onMyActivity,
     required this.onSearch,
     required this.onStopSearch,
     required this.onViewOptions,
@@ -52,6 +54,12 @@ class HomeView extends StatelessWidget {
 
   /// Null hides the repeat icon: only division leads have one (0012).
   final VoidCallback? onRepeating;
+
+  /// Null hides the activity icon: only the tab's leads open its log (0014).
+  final VoidCallback? onActivity;
+
+  /// The viewer's own log, from the account menu. Null hides it.
+  final VoidCallback? onMyActivity;
   final ValueChanged<String> onSearch;
   final VoidCallback onStopSearch;
   final VoidCallback onViewOptions;
@@ -126,6 +134,7 @@ class HomeView extends StatelessWidget {
             onViewOptions: onViewOptions,
             onMembers: onMembers,
             onRepeating: onRepeating,
+            onActivity: onActivity,
           );
 
     return Scaffold(
@@ -136,6 +145,7 @@ class HomeView extends StatelessWidget {
               user: state.user!,
               unread: state.unread > 0,
               onNotifications: onNotifications,
+              onMyActivity: onMyActivity,
               onAccountSettings: onAccountSettings,
               onLogOut: onLogOut,
             ),
@@ -202,6 +212,7 @@ class _TopBar extends StatelessWidget {
     required this.user,
     required this.unread,
     required this.onNotifications,
+    this.onMyActivity,
     required this.onAccountSettings,
     required this.onLogOut,
   });
@@ -209,6 +220,7 @@ class _TopBar extends StatelessWidget {
   final User user;
   final bool unread;
   final VoidCallback onNotifications;
+  final VoidCallback? onMyActivity;
   final VoidCallback onAccountSettings;
   final VoidCallback onLogOut;
 
@@ -262,6 +274,7 @@ class _TopBar extends StatelessWidget {
         ),
         _AccountMenu(
           user: user,
+          onMyActivity: onMyActivity,
           onAccountSettings: onAccountSettings,
           onLogOut: onLogOut,
         ),
@@ -275,11 +288,13 @@ class _TopBar extends StatelessWidget {
 class _AccountMenu extends StatelessWidget {
   const _AccountMenu({
     required this.user,
+    this.onMyActivity,
     required this.onAccountSettings,
     required this.onLogOut,
   });
 
   final User user;
+  final VoidCallback? onMyActivity;
   final VoidCallback onAccountSettings;
   final VoidCallback onLogOut;
 
@@ -332,6 +347,11 @@ class _AccountMenu extends StatelessWidget {
           ),
         ),
         const PopupMenuDivider(),
+        if (onMyActivity != null)
+          PopupMenuItem(
+            value: onMyActivity,
+            child: item(Icons.history, 'my activity', AppColors.foreground),
+          ),
         PopupMenuItem(
           value: onAccountSettings,
           child: item(
@@ -369,6 +389,7 @@ class _Toolbar extends StatelessWidget {
     required this.onViewOptions,
     this.onMembers,
     this.onRepeating,
+    this.onActivity,
   });
 
   final int count;
@@ -379,6 +400,7 @@ class _Toolbar extends StatelessWidget {
   final VoidCallback onViewOptions;
   final VoidCallback? onMembers;
   final VoidCallback? onRepeating;
+  final VoidCallback? onActivity;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -408,6 +430,12 @@ class _Toolbar extends StatelessWidget {
             onPressed: onRepeating,
             tooltip: 'Repeating',
             icon: const Icon(Icons.repeat, color: AppColors.mutedForeground),
+          ),
+        if (onActivity != null)
+          IconButton(
+            onPressed: onActivity,
+            tooltip: 'Activity',
+            icon: const Icon(Icons.history, color: AppColors.mutedForeground),
           ),
         IconButton(
           onPressed: onSearch,
