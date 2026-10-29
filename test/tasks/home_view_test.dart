@@ -5,6 +5,7 @@ import 'package:tasko/core/theme/app_theme.dart';
 import 'package:tasko/tasks/home_cubit.dart';
 import 'package:tasko/tasks/screens/home_panel.dart';
 import 'package:tasko/tasks/tasks_api.dart';
+import 'package:tasko/tasks/widgets/pulse_panel.dart';
 import 'package:tasko/tasks/widgets/tab_strip.dart';
 import 'package:tasko/tasks/widgets/task_row.dart';
 
@@ -169,7 +170,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(day(1), findsNothing);
     expect(day(18), findsOneWidget);
-    expect(find.bySemanticsLabel('Show month'), findsWidgets);
 
     await tester.fling(day(15), const Offset(-300, 0), 1000);
     await tester.pump(const Duration(milliseconds: 100));
@@ -182,10 +182,49 @@ void main() {
     expect(find.text('Oct 14'), findsOneWidget);
     expect(find.text('5 open'), findsOneWidget);
 
-    await tester.tap(find.bySemanticsLabel('Show month').first);
+    // Dragging the tab bar down opens the month again; the day stays.
+    await tester.drag(find.byType(TabStrip), const Offset(0, 200));
     await tester.pumpAndSettle();
     expect(day(1), findsOneWidget);
     expect(find.text('Oct 14'), findsOneWidget);
+  });
+
+  testWidgets('the tab bar folds the calendar with the finger (0016)', (
+    tester,
+  ) async {
+    await pump(tester);
+    double panel() => tester.getSize(find.byType(PulsePanel)).height;
+    final month = panel();
+
+    // Half-way up: the month is part folded, between month and week.
+    final drag = await tester.startGesture(
+      tester.getCenter(find.byType(TabStrip)),
+    );
+    await drag.moveBy(const Offset(0, -20)); // past the drag slop
+    await drag.moveBy(const Offset(0, -50));
+    await tester.pump();
+    expect(panel(), lessThan(month - 30));
+    expect(panel(), greaterThan(month - 160));
+
+    // Let go before half way, slowly: back to the month.
+    await tester.pump(const Duration(seconds: 1));
+    await drag.up();
+    await tester.pumpAndSettle();
+    expect(panel(), month);
+
+    // All the way up: today's week, with nothing selected.
+    await tester.drag(find.byType(TabStrip), const Offset(0, -200));
+    await tester.pumpAndSettle();
+    expect(panel(), lessThan(month - 120));
+    expect(day(5), findsOneWidget);
+    expect(day(12), findsNothing);
+    expect(find.text('Oct 7'), findsNothing); // no day chip
+    expect(cubit.state.selectedDay, isNull);
+
+    // The title no longer opens anything; only the drag does.
+    await tester.tap(find.text('October'));
+    await tester.pumpAndSettle();
+    expect(day(12), findsNothing);
   });
 
   testWidgets('the week follows the finger; a short drag springs back', (

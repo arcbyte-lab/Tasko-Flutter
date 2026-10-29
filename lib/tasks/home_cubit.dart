@@ -64,10 +64,9 @@ class HomeState {
   /// The calendar fills the screen; tabs and list are hidden.
   final bool calendarExpanded;
 
-  /// The whole month shows. When false and a day is selected, the calendar
-  /// collapses to [week].
+  /// The whole month shows; when false the calendar is folded to [week].
   final bool monthOpen;
-  bool get showsWeek => selectedDay != null && !monthOpen;
+  bool get showsWeek => !monthOpen;
 
   bool get loading => user == null;
   bool get searching => query != null;
@@ -270,6 +269,13 @@ class HomeCubit extends Cubit<HomeState> {
   }
 
   void openMonth() => emit(state.copyWith(monthOpen: true));
+
+  /// Folds the month to a week by dragging up: the selected day's, else
+  /// today's, else the month's first.
+  void foldToWeek() {
+    final week = foldWeek(state.month, state.selectedDay, state.today);
+    emit(state.copyWith(week: week, monthOpen: false));
+  }
 
   void toggleCalendar() =>
       emit(state.copyWith(calendarExpanded: !state.calendarExpanded));

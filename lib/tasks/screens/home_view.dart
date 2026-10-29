@@ -21,6 +21,7 @@ class HomeView extends StatelessWidget {
     required this.onWeekChange,
     required this.onToday,
     required this.onOpenMonth,
+    required this.onFoldToWeek,
     required this.onToggleCompleted,
     required this.onTick,
     required this.onOpen,
@@ -48,6 +49,7 @@ class HomeView extends StatelessWidget {
   final ValueChanged<int> onWeekChange;
   final VoidCallback onToday;
   final VoidCallback onOpenMonth;
+  final VoidCallback onFoldToWeek;
   final VoidCallback onToggleCompleted;
   final ValueChanged<Task> onTick;
   final VoidCallback onCreate;
@@ -145,68 +147,78 @@ class HomeView extends StatelessWidget {
 
     return Scaffold(
       body: SafeArea(
-        child: Column(
-          children: [
-            _TopBar(
-              user: state.user!,
-              unread: state.unread > 0,
-              onNotifications: onNotifications,
-              onMyActivity: onMyActivity,
-              onAccountSettings: onAccountSettings,
-              onLogOut: onLogOut,
-            ),
-            Flexible(
-              flex: state.calendarExpanded ? 1 : 0,
-              fit: state.calendarExpanded ? FlexFit.tight : FlexFit.loose,
-              child: ConstrainedBox(
-                // A short (landscape) screen keeps room for the list; the
-                // month scrolls inside the panel.
-                constraints: BoxConstraints(
-                  maxHeight: state.calendarExpanded
-                      ? double.infinity
-                      : MediaQuery.sizeOf(context).height * 0.4,
-                ),
-                child: PulsePanel(
-                  expanded: state.calendarExpanded,
-                  onToggleExpanded: onToggleCalendar,
-                  month: state.month,
-                  week: state.week,
-                  today: state.today,
-                  dueOn: state.dueOn,
-                  selectedDay: state.selectedDay,
-                  showsWeek: state.showsWeek,
-                  onDayTap: onDayTap,
-                  onMonthChange: onMonthChange,
-                  onWeekChange: onWeekChange,
-                  onToday: onToday,
-                  onOpenMonth: onOpenMonth,
-                ),
+        // A vertical drag on the tab bar or the calendar's handle folds the
+        // calendar between month and week strip (arcbyte decision 0016).
+        child: CalendarFold(
+          showsWeek: state.showsWeek,
+          onOpen: onOpenMonth,
+          onFold: onFoldToWeek,
+          builder: (context, fold, handle) => Column(
+            children: [
+              _TopBar(
+                user: state.user!,
+                unread: state.unread > 0,
+                onNotifications: onNotifications,
+                onMyActivity: onMyActivity,
+                onAccountSettings: onAccountSettings,
+                onLogOut: onLogOut,
               ),
-            ),
-            // The full-screen calendar hides the tabs and the list.
-            if (!state.calendarExpanded) ...[
-              Expanded(
-                child: TabPages(
-                  tabs: state.tabs,
-                  active: state.activeTab!,
-                  onPageChanged: onSelectTab,
-                  pageBuilder: (tab) => _page(state.pageFor(tab)),
-                  header: (position) => Column(
-                    children: [
-                      TabStrip(
-                        tabs: state.tabs,
-                        active: state.activeTab,
-                        position: position,
-                        onSelect: onSelectTab,
-                        onNewProject: onNewProject,
-                      ),
-                      toolbar,
-                    ],
+              Flexible(
+                flex: state.calendarExpanded ? 1 : 0,
+                fit: state.calendarExpanded ? FlexFit.tight : FlexFit.loose,
+                child: ConstrainedBox(
+                  // A short (landscape) screen keeps room for the list; the
+                  // month scrolls inside the panel.
+                  constraints: BoxConstraints(
+                    maxHeight: state.calendarExpanded
+                        ? double.infinity
+                        : MediaQuery.sizeOf(context).height * 0.4,
+                  ),
+                  child: PulsePanel(
+                    expanded: state.calendarExpanded,
+                    onToggleExpanded: onToggleCalendar,
+                    month: state.month,
+                    week: state.week,
+                    today: state.today,
+                    dueOn: state.dueOn,
+                    selectedDay: state.selectedDay,
+                    showsWeek: state.showsWeek,
+                    onDayTap: onDayTap,
+                    onMonthChange: onMonthChange,
+                    onWeekChange: onWeekChange,
+                    onToday: onToday,
+                    fold: fold,
+                    handle: handle,
                   ),
                 ),
               ),
+              // The full-screen calendar hides the tabs and the list.
+              if (!state.calendarExpanded) ...[
+                Expanded(
+                  child: TabPages(
+                    tabs: state.tabs,
+                    active: state.activeTab!,
+                    onPageChanged: onSelectTab,
+                    pageBuilder: (tab) => _page(state.pageFor(tab)),
+                    header: (position) => Column(
+                      children: [
+                        handle(
+                          TabStrip(
+                            tabs: state.tabs,
+                            active: state.activeTab,
+                            position: position,
+                            onSelect: onSelectTab,
+                            onNewProject: onNewProject,
+                          ),
+                        ),
+                        toolbar,
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
       // Hidden while searching, as in the mockup.

@@ -37,6 +37,7 @@ class HomePanel extends StatelessWidget {
         onWeekChange: cubit.changeWeek,
         onToday: cubit.goToToday,
         onOpenMonth: cubit.openMonth,
+        onFoldToWeek: cubit.foldToWeek,
         onToggleCompleted: cubit.toggleCompleted,
         onTick: (task) async {
           try {
