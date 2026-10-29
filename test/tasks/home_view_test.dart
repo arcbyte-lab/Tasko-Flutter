@@ -172,6 +172,10 @@ void main() {
     expect(find.bySemanticsLabel('Show month'), findsWidgets);
 
     await tester.fling(day(15), const Offset(-300, 0), 1000);
+    await tester.pump(const Duration(milliseconds: 100));
+    // Mid-slide: the old week is leaving while the new one comes in.
+    expect(find.text('14'), findsOneWidget);
+    expect(find.text('21'), findsOneWidget);
     await tester.pumpAndSettle();
     expect(day(21), findsOneWidget);
     expect(day(14), findsNothing);

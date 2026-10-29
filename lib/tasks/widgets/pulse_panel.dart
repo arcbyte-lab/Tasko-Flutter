@@ -103,6 +103,7 @@ class PulsePanel extends StatelessWidget {
     );
 
     final weeks = _weeks(strip);
+    final page = (strip: strip, start: strip ? week : month);
     return GestureDetector(
       onHorizontalDragEnd: (d) {
         final v = d.primaryVelocity ?? 0;
@@ -129,13 +130,26 @@ class PulsePanel extends StatelessWidget {
             ),
             _Weekdays(padding: expanded ? 4 : 8),
             if (expanded)
-              for (final w in weeks) Expanded(child: row(w))
+              Expanded(
+                child: _Slide(
+                  page: page,
+                  child: Column(
+                    children: [for (final w in weeks) Expanded(child: row(w))],
+                  ),
+                ),
+              )
             else
               // Scrolls when the screen is short (landscape) instead of
               // overflowing; HomeView caps the panel's height.
               Flexible(
                 child: SingleChildScrollView(
-                  child: Column(children: [for (final w in weeks) row(w)]),
+                  child: _Slide(
+                    page: page,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [for (final w in weeks) row(w)],
+                    ),
+                  ),
                 ),
               ),
             if (strip) _Grabber(onOpen: onOpenMonth),
@@ -144,6 +158,65 @@ class PulsePanel extends StatelessWidget {
       ),
     );
   }
+}
+
+typedef _Page = ({bool strip, DateTime start});
+
+/// Slides the grid sideways when the month or week changes: the new one
+/// comes in from the side the swipe (or "Today") is heading to. Switching
+/// between month and week strip is instant.
+class _Slide extends StatefulWidget {
+  const _Slide({required this.page, required this.child});
+
+  final _Page page;
+  final Widget child;
+
+  @override
+  State<_Slide> createState() => _SlideState();
+}
+
+class _SlideState extends State<_Slide> {
+  var _forward = true;
+  var _animate = false;
+
+  @override
+  void didUpdateWidget(_Slide old) {
+    super.didUpdateWidget(old);
+    final (a, b) = (old.page, widget.page);
+    if (a == b) return;
+    _animate = a.strip == b.strip;
+    _forward = b.start.isAfter(a.start);
+  }
+
+  @override
+  Widget build(BuildContext context) => ClipRect(
+    child: AnimatedSwitcher(
+      // Fixed: each grid keeps the duration it was created with, and plays
+      // it again in reverse as it leaves.
+      duration: const Duration(milliseconds: 250),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeOutCubic,
+      layoutBuilder: (current, previous) => Stack(
+        alignment: Alignment.topCenter,
+        children: [...previous, ?current],
+      ),
+      transitionBuilder: (child, animation) {
+        // The outgoing grid plays the animation in reverse, so it leaves
+        // towards the opposite side.
+        final incoming = child.key == ValueKey(widget.page);
+        if (!_animate) return incoming ? child : const SizedBox.shrink();
+        final side = (_forward ? 1.0 : -1.0) * (incoming ? 1 : -1);
+        return SlideTransition(
+          position: Tween(
+            begin: Offset(side, 0),
+            end: Offset.zero,
+          ).animate(animation),
+          child: child,
+        );
+      },
+      child: KeyedSubtree(key: ValueKey(widget.page), child: widget.child),
+    ),
+  );
 }
 
 class _Header extends StatelessWidget {
