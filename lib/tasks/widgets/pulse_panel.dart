@@ -44,17 +44,18 @@ class PulsePanel extends StatelessWidget {
   final bool expanded;
   final VoidCallback? onToggleExpanded;
 
-  /// The weeks on show: just [week] in the strip, else [month]'s weeks with
-  /// null for the days outside it.
-  List<List<DateTime?>> _weeks(bool strip) {
+  /// The weeks of the page [step] pages from the current one: one week in
+  /// the strip, else a month's weeks with null for the days outside it.
+  List<List<DateTime?>> _weeks(bool strip, int step) {
     if (strip) {
       return [
         [
           for (var i = 0; i < 7; i++)
-            DateTime(week.year, week.month, week.day + i),
+            DateTime(week.year, week.month, week.day + 7 * step + i),
         ],
       ];
     }
+    final month = DateTime(this.month.year, this.month.month + step);
     final leading = DateTime(month.year, month.month).weekday - 1;
     final days = DateTime(month.year, month.month + 1, 0).day;
     final rows = ((leading + days) / 7).ceil();
@@ -102,59 +103,47 @@ class PulsePanel extends StatelessWidget {
       ),
     );
 
-    final weeks = _weeks(strip);
-    final page = (strip: strip, start: strip ? week : month);
-    return GestureDetector(
-      onHorizontalDragEnd: (d) {
-        final v = d.primaryVelocity ?? 0;
-        if (v.abs() <= 200) return;
-        (strip ? onWeekChange : onMonthChange)(v < 0 ? 1 : -1);
-      },
-      child: Container(
-        decoration: const BoxDecoration(
-          color: AppColors.muted,
-          border: Border(bottom: BorderSide(color: AppColors.border)),
-        ),
-        padding: const EdgeInsets.only(bottom: 4),
-        child: Column(
-          mainAxisSize: expanded ? MainAxisSize.max : MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _Header(
-              month: month,
-              strip: strip,
-              expanded: expanded,
-              onToday: onToday,
-              onOpenMonth: onOpenMonth,
-              onToggleExpanded: onToggleExpanded,
-            ),
-            _Weekdays(padding: expanded ? 4 : 8),
-            if (expanded)
-              Expanded(
-                child: _Slide(
-                  page: page,
-                  child: Column(
-                    children: [for (final w in weeks) Expanded(child: row(w))],
-                  ),
-                ),
-              )
-            else
-              // Scrolls when the screen is short (landscape) instead of
-              // overflowing; HomeView caps the panel's height.
-              Flexible(
-                child: SingleChildScrollView(
-                  child: _Slide(
-                    page: page,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [for (final w in weeks) row(w)],
-                    ),
-                  ),
-                ),
-              ),
-            if (strip) _Grabber(onOpen: onOpenMonth),
-          ],
-        ),
+    Widget grid(int step) => Column(
+      mainAxisSize: expanded ? MainAxisSize.max : MainAxisSize.min,
+      children: [
+        for (final w in _weeks(strip, step))
+          expanded ? Expanded(child: row(w)) : row(w),
+      ],
+    );
+    final pager = _Pager(
+      page: (strip: strip, start: strip ? week : month),
+      fill: expanded,
+      grid: grid,
+      onChange: strip ? onWeekChange : onMonthChange,
+    );
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColors.muted,
+        border: Border(bottom: BorderSide(color: AppColors.border)),
+      ),
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Column(
+        mainAxisSize: expanded ? MainAxisSize.max : MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _Header(
+            month: month,
+            strip: strip,
+            expanded: expanded,
+            onToday: onToday,
+            onOpenMonth: onOpenMonth,
+            onToggleExpanded: onToggleExpanded,
+          ),
+          _Weekdays(padding: expanded ? 4 : 8),
+          if (expanded)
+            Expanded(child: pager)
+          else
+            // Scrolls when the screen is short (landscape) instead of
+            // overflowing; HomeView caps the panel's height.
+            Flexible(child: SingleChildScrollView(child: pager)),
+          if (strip) _Grabber(onOpen: onOpenMonth),
+        ],
       ),
     );
   }
@@ -162,60 +151,126 @@ class PulsePanel extends StatelessWidget {
 
 typedef _Page = ({bool strip, DateTime start});
 
-/// Slides the grid sideways when the month or week changes: the new one
-/// comes in from the side the swipe (or "Today") is heading to. Switching
-/// between month and week strip is instant.
-class _Slide extends StatefulWidget {
-  const _Slide({required this.page, required this.child});
+/// The month or week grid, following the finger sideways with the next or
+/// previous one beside it. Let go past a third of the width, or flick, and
+/// it moves on; otherwise it springs back. A change from elsewhere ("Today")
+/// slides in the same way. Switching between month and week strip is
+/// instant.
+class _Pager extends StatefulWidget {
+  const _Pager({
+    required this.page,
+    required this.fill,
+    required this.grid,
+    required this.onChange,
+  });
 
   final _Page page;
-  final Widget child;
+
+  /// Fill the height (full screen) rather than size to the grid.
+  final bool fill;
+
+  /// The grid [step] pages away: -1 before, 0 this one, 1 after.
+  final Widget Function(int step) grid;
+  final ValueChanged<int> onChange;
 
   @override
-  State<_Slide> createState() => _SlideState();
+  State<_Pager> createState() => _PagerState();
 }
 
-class _SlideState extends State<_Slide> {
-  var _forward = true;
-  var _animate = false;
+class _PagerState extends State<_Pager> with SingleTickerProviderStateMixin {
+  static const _duration = Duration(milliseconds: 250);
+
+  /// How far the grid is pulled sideways, in pixels.
+  late final _dx = AnimationController.unbounded(vsync: this);
+  var _width = 0.0;
+
+  /// The page change about to arrive came from our own swipe, so it must
+  /// not slide in again.
+  var _moved = false;
 
   @override
-  void didUpdateWidget(_Slide old) {
-    super.didUpdateWidget(old);
-    final (a, b) = (old.page, widget.page);
-    if (a == b) return;
-    _animate = a.strip == b.strip;
-    _forward = b.start.isAfter(a.start);
+  void dispose() {
+    _dx.dispose();
+    super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) => ClipRect(
-    child: AnimatedSwitcher(
-      // Fixed: each grid keeps the duration it was created with, and plays
-      // it again in reverse as it leaves.
-      duration: const Duration(milliseconds: 250),
-      switchInCurve: Curves.easeOutCubic,
-      switchOutCurve: Curves.easeOutCubic,
-      layoutBuilder: (current, previous) => Stack(
-        alignment: Alignment.topCenter,
-        children: [...previous, ?current],
-      ),
-      transitionBuilder: (child, animation) {
-        // The outgoing grid plays the animation in reverse, so it leaves
-        // towards the opposite side.
-        final incoming = child.key == ValueKey(widget.page);
-        if (!_animate) return incoming ? child : const SizedBox.shrink();
-        final side = (_forward ? 1.0 : -1.0) * (incoming ? 1 : -1);
-        return SlideTransition(
-          position: Tween(
-            begin: Offset(side, 0),
-            end: Offset.zero,
-          ).animate(animation),
-          child: child,
-        );
-      },
-      child: KeyedSubtree(key: ValueKey(widget.page), child: widget.child),
-    ),
+  void didUpdateWidget(_Pager old) {
+    super.didUpdateWidget(old);
+    final (a, b) = (old.page, widget.page);
+    if (a == b) return;
+    if (_moved || a.strip != b.strip || _width == 0) {
+      _moved = false;
+      _dx.value = 0;
+      return;
+    }
+    // Start one width off to the side it comes from, then slide in.
+    _dx.value = b.start.isAfter(a.start) ? _width : -_width;
+    _dx.animateTo(0, duration: _duration, curve: Curves.easeOutCubic);
+  }
+
+  void _end(DragEndDetails d) {
+    final v = d.primaryVelocity ?? 0;
+    final dx = _dx.value;
+    final step = dx < -_width / 3 || v < -300
+        ? 1
+        : dx > _width / 3 || v > 300
+        ? -1
+        : 0;
+    if (step == 0) {
+      _dx.animateTo(0, duration: _duration, curve: Curves.easeOutCubic);
+      return;
+    }
+    _dx
+        .animateTo(
+          -step * _width,
+          duration: _duration,
+          curve: Curves.easeOutCubic,
+        )
+        .whenCompleteOrCancel(() {
+          if (!mounted) return;
+          _moved = true;
+          widget.onChange(step);
+        });
+  }
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, box) {
+      _width = box.maxWidth;
+      return GestureDetector(
+        onHorizontalDragStart: (_) => _dx.stop(),
+        onHorizontalDragUpdate: (d) => _dx.value += d.delta.dx,
+        onHorizontalDragEnd: _end,
+        child: ClipRect(
+          child: AnimatedBuilder(
+            animation: _dx,
+            builder: (context, current) {
+              final dx = _dx.value;
+              // A neighbour only shows, and only builds, while pulled.
+              Widget side(int step) => Positioned(
+                left: dx + step * _width,
+                top: 0,
+                bottom: widget.fill ? 0 : null,
+                width: _width,
+                child: IgnorePointer(
+                  child: ExcludeSemantics(child: widget.grid(step)),
+                ),
+              );
+              return Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Transform.translate(offset: Offset(dx, 0), child: current),
+                  if (dx > 0) side(-1),
+                  if (dx < 0) side(1),
+                ],
+              );
+            },
+            child: widget.grid(0),
+          ),
+        ),
+      );
+    },
   );
 }
 

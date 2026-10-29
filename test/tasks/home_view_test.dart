@@ -188,6 +188,31 @@ void main() {
     expect(find.text('Oct 14'), findsOneWidget);
   });
 
+  testWidgets('the week follows the finger; a short drag springs back', (
+    tester,
+  ) async {
+    await pump(tester);
+    await tester.tap(day(14));
+    await tester.pumpAndSettle();
+    final x14 = tester.getCenter(find.text('14')).dx;
+
+    // Half-way through a slow drag: both weeks show, moved with the finger.
+    final drag = await tester.startGesture(tester.getCenter(find.text('15')));
+    await drag.moveBy(const Offset(-20, 0)); // past the drag slop
+    await drag.moveBy(const Offset(-80, 0));
+    await tester.pump();
+    expect(tester.getCenter(find.text('14')).dx, lessThan(x14 - 60));
+    expect(find.text('21'), findsOneWidget);
+
+    // Let go short of a third of the width, without a flick: it stays.
+    await tester.pump(const Duration(seconds: 1));
+    await drag.up();
+    await tester.pumpAndSettle();
+    expect(tester.getCenter(find.text('14')).dx, x14);
+    expect(find.text('21'), findsNothing);
+    expect(find.text('Oct 14'), findsOneWidget);
+  });
+
   testWidgets('Today selects today from another month', (tester) async {
     await pump(tester);
     await tester.fling(day(15), const Offset(-300, 0), 1000);
