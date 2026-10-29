@@ -49,14 +49,16 @@ class HomePanel extends StatelessWidget {
           }
         },
         onCreate: () async {
+          // "my tasks" isn't a place: start in private and let the user
+          // pick the tab (decision 0017).
+          final mine = state.activeTab!.kind == TabKind.myTasks;
           final task = await showCreateTaskSheet(
             context,
             api: context.read<TasksApi>(),
-            // "my tasks" isn't a place: create in private until the tab
-            // picker (B19) lets the user choose.
-            tab: state.activeTab!.kind == TabKind.myTasks
-                ? TaskTab.private
-                : state.activeTab!,
+            tab: mine ? TaskTab.private : state.activeTab!,
+            tabs: mine
+                ? state.tabs.where((t) => t.kind != TabKind.myTasks).toList()
+                : null,
             today: state.today,
           );
           if (task != null) await cubit.reload();

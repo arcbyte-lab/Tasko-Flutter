@@ -98,6 +98,69 @@ class PickerFrame extends StatelessWidget {
   }
 }
 
+/// Which tab a task created from "my tasks" goes in: the workspaces, then
+/// the projects, under their labels (decision 0017).
+class TabPicker extends StatefulWidget {
+  const TabPicker({super.key, required this.tabs, required this.initial});
+
+  final List<TaskTab> tabs;
+  final TaskTab initial;
+
+  @override
+  State<TabPicker> createState() => _TabPickerState();
+}
+
+class _TabPickerState extends State<TabPicker> {
+  late TaskTab _value = widget.initial;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget row(TaskTab t) => InkWell(
+      onTap: () => setState(() => _value = t),
+      child: Container(
+        height: 46,
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: AppColors.border)),
+        ),
+        child: Row(
+          children: [
+            Expanded(child: Text(t.name, style: const TextStyle(fontSize: 15))),
+            Radio<TaskTab>(value: t),
+          ],
+        ),
+      ),
+    );
+    Widget label(String text) => Padding(
+      padding: const EdgeInsets.only(top: 12, bottom: 4),
+      child: Text(text, style: groupLabelStyle()),
+    );
+    final projects = widget.tabs.where((t) => t.kind == TabKind.project);
+    return PickerFrame(
+      label: 'CREATE IN',
+      onDone: () => Navigator.pop(context, _value),
+      child: RadioGroup<TaskTab>(
+        groupValue: _value,
+        onChanged: (v) => setState(() => _value = v!),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              label('WORKSPACES'),
+              for (final t in widget.tabs)
+                if (t.kind != TabKind.project) row(t),
+              if (projects.isNotEmpty) ...[
+                label('PROJECTS'),
+                ...projects.map(row),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// 1 to 4 rising bars; urgent is red, the rest primary.
 class PriorityBars extends StatelessWidget {
   const PriorityBars(this.priority, {super.key});

@@ -5,6 +5,7 @@ import 'tasks_api.dart';
 
 class CreateTaskState {
   const CreateTaskState({
+    required this.tab,
     this.name = '',
     this.note = '',
     this.priority = Priority.medium,
@@ -15,6 +16,8 @@ class CreateTaskState {
     this.submitting = false,
   });
 
+  /// Where the task is created. Changeable from "my tasks" (decision 0017).
+  final TaskTab tab;
   final String name;
   final String note;
   final Priority priority;
@@ -36,21 +39,23 @@ class CreateTaskState {
   bool get canSubmit => name.trim().isNotEmpty && !submitting && !missingDue;
 
   CreateTaskState copyWith({
+    TaskTab? tab,
     String? name,
     String? note,
     Priority? priority,
     DateTime? dueDate,
     List<Member>? members,
-    Member? assignee,
+    Member? Function()? assignee,
     Repeat? Function()? repeat,
     bool? submitting,
   }) => CreateTaskState(
+    tab: tab ?? this.tab,
     name: name ?? this.name,
     note: note ?? this.note,
     priority: priority ?? this.priority,
     dueDate: dueDate ?? this.dueDate,
     members: members ?? this.members,
-    assignee: assignee ?? this.assignee,
+    assignee: assignee != null ? assignee() : this.assignee,
     repeat: repeat != null ? repeat() : this.repeat,
     submitting: submitting ?? this.submitting,
   );
@@ -58,29 +63,42 @@ class CreateTaskState {
 
 /// The draft behind the create sheet. Submits once.
 class CreateTaskCubit extends Cubit<CreateTaskState> {
-  CreateTaskCubit(this._api, this.tab) : super(const CreateTaskState());
+  CreateTaskCubit(this._api, TaskTab tab) : super(CreateTaskState(tab: tab));
 
   final TasksApi _api;
-  final TaskTab tab;
 
+  TaskTab get tab => state.tab;
   bool get isTeam => tab.kind != TabKind.private;
 
   Future<void> load() async {
     if (!isTeam) return;
+    final tab = this.tab;
     final members = await _api.membersOf(tab);
+    // Another tab may have been picked while these loaded.
+    if (isClosed || this.tab != tab) return;
+    emit(state.copyWith(members: members, assignee: () => members.firstOrNull));
+  }
+
+  /// Moves the draft to [tab] (from "my tasks"). Assignee and repeat belong
+  /// to the old tab, so they go; a team tab loads its members again.
+  Future<void> setTab(TaskTab tab) async {
+    if (tab == this.tab) return;
     emit(
       state.copyWith(
-        members: members,
-        assignee: members.isEmpty ? null : members.first,
+        tab: tab,
+        members: const [],
+        assignee: () => null,
+        repeat: () => null,
       ),
     );
+    await load();
   }
 
   void setName(String v) => emit(state.copyWith(name: v));
   void setNote(String v) => emit(state.copyWith(note: v));
   void setPriority(Priority v) => emit(state.copyWith(priority: v));
   void setDueDate(DateTime v) => emit(state.copyWith(dueDate: v));
-  void setAssignee(Member v) => emit(state.copyWith(assignee: v));
+  void setAssignee(Member v) => emit(state.copyWith(assignee: () => v));
 
   /// Null stops it repeating.
   void setRepeat(Repeat? v) => emit(state.copyWith(repeat: () => v));

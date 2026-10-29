@@ -42,6 +42,7 @@ void main() {
     for (final chip in ['due date', 'medium', 'me', 'no proof']) {
       expect(find.text(chip), findsOneWidget);
     }
+    expect(find.textContaining('▾'), findsNothing); // no tab chip here
     final done = find.widgetWithText(FilledButton, 'done');
     expect(tester.widget<FilledButton>(done).onPressed, isNull);
 
@@ -104,6 +105,58 @@ void main() {
     expect(find.text('action: choose proof type'), findsOneWidget);
     await tester.pump(const Duration(seconds: 3));
     expect(find.text('action: choose proof type'), findsNothing);
+  });
+
+  testWidgets('from my tasks: pick the tab, then create there (0017)', (
+    tester,
+  ) async {
+    await openSheet(tester, 'my tasks');
+    expect(find.text('private ▾'), findsOneWidget);
+    expect(find.text('me'), findsNothing);
+
+    await tester.tap(find.text('private ▾'));
+    await tester.pumpAndSettle();
+    expect(find.text('CREATE IN'), findsOneWidget);
+    expect(find.text('my tasks'), findsOneWidget); // only in the tab strip
+    await tester.tap(find.text('tasko-web').last);
+    await tester.tap(find.widgetWithText(FilledButton, 'done').last);
+    await tester.pumpAndSettle();
+    expect(find.text('tasko-web ▾'), findsOneWidget);
+    expect(find.text('me'), findsOneWidget);
+    expect(find.text('no proof'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField).first, 'Prepare demo');
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, 'done'));
+    await tester.pumpAndSettle();
+    expect(find.text('new task'), findsNothing);
+    await tester.scrollUntilVisible(
+      find.text('Prepare demo'),
+      100,
+      scrollable: find.descendant(
+        of: find.byType(ListView),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    expect(find.textContaining('· tasko-web'), findsWidgets);
+  });
+
+  testWidgets('back to private drops the assignee chip', (tester) async {
+    await openSheet(tester, 'my tasks');
+    await tester.tap(find.text('private ▾'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('tech').last);
+    await tester.tap(find.widgetWithText(FilledButton, 'done').last);
+    await tester.pumpAndSettle();
+    expect(find.text('me'), findsOneWidget);
+
+    await tester.tap(find.text('tech ▾'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('private').last);
+    await tester.tap(find.widgetWithText(FilledButton, 'done').last);
+    await tester.pumpAndSettle();
+    expect(find.text('me'), findsNothing);
+    expect(find.text('no proof'), findsNothing);
   });
 
   testWidgets('a personal task has only due date and priority', (tester) async {

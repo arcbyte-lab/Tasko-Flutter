@@ -27,6 +27,30 @@ void main() {
     expect(cubit.state.assignee, isNull);
   });
 
+  test('picking a tab moves the draft there (0017)', () async {
+    final cubit = await cubitFor(TaskTab.private);
+    cubit.setName('Prepare demo');
+    await cubit.setTab(FakeTasksApi.tech);
+    expect(cubit.isTeam, isTrue);
+    expect(cubit.state.assignee?.user.name, 'Mira');
+    cubit.setRepeat(const Repeat(unit: RepeatUnit.week));
+
+    // Back to private: the team-only choices go, the title stays.
+    await cubit.setTab(TaskTab.private);
+    expect(cubit.state.members, isEmpty);
+    expect(cubit.state.assignee, isNull);
+    expect(cubit.state.repeat, isNull);
+    expect(cubit.state.name, 'Prepare demo');
+
+    await cubit.setTab(FakeTasksApi.taskoWeb);
+    final task = (await cubit.submit())!;
+    expect(task.personal, isFalse);
+    expect(
+      (await api.tasksFor(FakeTasksApi.taskoWeb)).map((t) => t.id),
+      contains(task.id),
+    );
+  });
+
   test('a blank title cannot be submitted', () async {
     final cubit = await cubitFor(FakeTasksApi.taskoWeb);
     cubit.setName('   ');

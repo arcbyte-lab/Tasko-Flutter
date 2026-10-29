@@ -12,12 +12,14 @@ import '../widgets/task_row.dart';
 import 'repeat_screen.dart';
 
 /// Opens the create sheet for [tab]. Resolves to the new task, or null when
-/// the sheet is dismissed.
+/// the sheet is dismissed. Given [tabs] (from "my tasks", decision 0017), a
+/// chip lets the user pick which of them it goes in.
 Future<Task?> showCreateTaskSheet(
   BuildContext context, {
   required TasksApi api,
   required TaskTab tab,
   required DateTime today,
+  List<TaskTab>? tabs,
 }) => showModalBottomSheet<Task>(
   context: context,
   isScrollControlled: true,
@@ -30,15 +32,16 @@ Future<Task?> showCreateTaskSheet(
   ),
   builder: (_) => BlocProvider(
     create: (_) => CreateTaskCubit(api, tab)..load(),
-    child: _CreateTaskPanel(today: today),
+    child: _CreateTaskPanel(today: today, tabs: tabs),
   ),
 );
 
 /// Wires [CreateTaskForm] to the cubit and opens the pickers.
 class _CreateTaskPanel extends StatelessWidget {
-  const _CreateTaskPanel({required this.today});
+  const _CreateTaskPanel({required this.today, this.tabs});
 
   final DateTime today;
+  final List<TaskTab>? tabs;
 
   @override
   Widget build(BuildContext context) {
@@ -49,6 +52,15 @@ class _CreateTaskPanel extends StatelessWidget {
         today: today,
         isTeam: cubit.isTeam,
         canRepeat: canManageRepeats(cubit.tab),
+        onTab: tabs == null
+            ? null
+            : () async {
+                final v = await showPicker<TaskTab>(
+                  context,
+                  TabPicker(tabs: tabs!, initial: cubit.tab),
+                );
+                if (v != null) cubit.setTab(v);
+              },
         onName: cubit.setName,
         onNote: cubit.setNote,
         onDueDate: () async {
@@ -101,6 +113,7 @@ class CreateTaskForm extends StatelessWidget {
     required this.today,
     required this.isTeam,
     this.canRepeat = false,
+    this.onTab,
     required this.onName,
     required this.onNote,
     required this.onDueDate,
@@ -115,6 +128,9 @@ class CreateTaskForm extends StatelessWidget {
   final DateTime today;
   final bool isTeam;
   final bool canRepeat;
+
+  /// Picks the tab; null hides the tab chip (any tab but "my tasks").
+  final VoidCallback? onTab;
   final ValueChanged<String> onName;
   final ValueChanged<String> onNote;
   final VoidCallback onDueDate;
@@ -176,6 +192,12 @@ class CreateTaskForm extends StatelessWidget {
               spacing: 8,
               runSpacing: 8,
               children: [
+                if (onTab != null)
+                  SheetChip(
+                    icon: Icons.folder_outlined,
+                    label: '${state.tab.name} ▾',
+                    onTap: onTab,
+                  ),
                 SheetChip(
                   icon: Icons.calendar_today_outlined,
                   label: due == null
