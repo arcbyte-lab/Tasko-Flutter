@@ -16,8 +16,6 @@ abstract final class AppColors {
   static const primary = Color(0xFF3B82F6);
   static const destructive = Color(0xFFEF4444);
   static const border = Color(0xFFE5E7EB);
-  static const heatmapEmpty = Color(0xFFD7D7D9);
-  static const heatmapBusiest = Color(0xFF1E40AF);
   static const controlBorder = Color(0xFFD1D5DB);
   static const placeholder = Color(0xFF9CA3AF);
 }

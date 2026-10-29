@@ -54,21 +54,25 @@ DayGroup dayGroup(Task t, DateTime now) {
 DateTime mondayOf(DateTime d) =>
     DateTime(d.year, d.month, d.day - d.weekday + 1);
 
-/// Open tasks due on each day of [month], keyed by day of month, each day in
-/// [taskOrder] (arcbyte decisions 0003, 0016).
-Map<int, List<Task>> dueByDay(Iterable<Task> tasks, DateTime month) {
-  final days = <int, List<Task>>{};
+/// Open tasks by the calendar day they are due, each day in [taskOrder]
+/// (arcbyte decisions 0003, 0016). Any day before today is overdue.
+Map<DateTime, List<Task>> dueByDate(Iterable<Task> tasks) {
+  final days = <DateTime, List<Task>>{};
   for (final t in tasks) {
-    final due = t.dueDate;
-    if (!isOpen(t) || due == null) continue;
-    if (due.year != month.year || due.month != month.month) continue;
-    days.putIfAbsent(due.day, () => []).add(t);
+    if (!isOpen(t) || t.dueDate == null) continue;
+    days.putIfAbsent(dateOnly(t.dueDate!), () => []).add(t);
   }
   for (final list in days.values) {
     list.sort(taskOrder);
   }
   return days;
 }
+
+/// [dueByDate] for one [month], keyed by day of month.
+Map<int, List<Task>> dueByDay(Iterable<Task> tasks, DateTime month) => {
+  for (final MapEntry(key: d, :value) in dueByDate(tasks).entries)
+    if (d.year == month.year && d.month == month.month) d.day: value,
+};
 
 /// How many open tasks are due on each day of [month].
 Map<int, int> dueCounts(Iterable<Task> tasks, DateTime month) =>

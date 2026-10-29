@@ -34,6 +34,9 @@ class HomePanel extends StatelessWidget {
         onDayTap: cubit.selectDay,
         onClearDay: cubit.clearDay,
         onMonthChange: cubit.changeMonth,
+        onWeekChange: cubit.changeWeek,
+        onToday: cubit.goToToday,
+        onOpenMonth: cubit.openMonth,
         onToggleCompleted: cubit.toggleCompleted,
         onTick: (task) async {
           try {
