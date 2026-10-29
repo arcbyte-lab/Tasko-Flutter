@@ -6,8 +6,9 @@ import '../task_rules.dart';
 
 /// The calendar above the tabs, after the iPhone Calendar app (arcbyte
 /// decision 0016, hifi `calendar / month`, `/ day-selected`, `/ fullscreen`).
-/// Day numbers with dots for the open tasks due; a selected day collapses
-/// it to that week. Expanded, it fills the screen with task titles.
+/// Day numbers with dots for the open tasks due. It folds between the month
+/// and a week strip by [fold]; [CalendarFold] drives that from a drag on the
+/// tab bar or the handle. Expanded, it fills the screen with task titles.
 class PulsePanel extends StatelessWidget {
   const PulsePanel({
     super.key,
@@ -21,7 +22,8 @@ class PulsePanel extends StatelessWidget {
     required this.onMonthChange,
     required this.onWeekChange,
     required this.onToday,
-    required this.onOpenMonth,
+    required this.fold,
+    required this.handle,
     this.expanded = false,
     this.onToggleExpanded,
   });
@@ -40,7 +42,13 @@ class PulsePanel extends StatelessWidget {
   final ValueChanged<int> onMonthChange;
   final ValueChanged<int> onWeekChange;
   final VoidCallback onToday;
-  final VoidCallback onOpenMonth;
+
+  /// 1 shows the month, 0 the week strip; in between, the month unfolds
+  /// from the week's row.
+  final Animation<double> fold;
+
+  /// Makes its child drag the fold (from [CalendarFold]).
+  final Widget Function(Widget child) handle;
   final bool expanded;
   final VoidCallback? onToggleExpanded;
 
@@ -75,9 +83,44 @@ class PulsePanel extends StatelessWidget {
     ];
   }
 
+  /// Half-way between month and week: [month]'s grid, its height between
+  /// one row and all of them, shifted so the folding week's row stays put.
+  Widget _folding(double t, Widget monthGrid) {
+    const rowHeight = 40.0;
+    final first = mondayOf(DateTime(month.year, month.month));
+    final rows = _weeks(false, 0).length;
+    final anchor = showsWeek ? week : foldWeek(month, selectedDay, today);
+    final row = (anchor.difference(first).inHours / (24 * 7)).round().clamp(
+      0,
+      rows - 1,
+    );
+    final top = row * rowHeight;
+    return SizedBox(
+      height: rowHeight + (rows - 1) * rowHeight * t,
+      child: ClipRect(
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned(
+              top: -top * (1 - t),
+              left: 0,
+              right: 0,
+              child: IgnorePointer(child: monthGrid),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
-  Widget build(BuildContext context) {
-    final strip = showsWeek && !expanded;
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: fold,
+    builder: (context, _) => _build(expanded ? 1 : fold.value),
+  );
+
+  Widget _build(double t) {
+    final strip = t == 0;
     Widget cell(DateTime? d) => Expanded(
       child: d == null
           ? const SizedBox()
@@ -129,10 +172,8 @@ class PulsePanel extends StatelessWidget {
         children: [
           _Header(
             month: month,
-            strip: strip,
             expanded: expanded,
             onToday: onToday,
-            onOpenMonth: onOpenMonth,
             onToggleExpanded: onToggleExpanded,
           ),
           _Weekdays(padding: expanded ? 4 : 8),
@@ -141,8 +182,12 @@ class PulsePanel extends StatelessWidget {
           else
             // Scrolls when the screen is short (landscape) instead of
             // overflowing; HomeView caps the panel's height.
-            Flexible(child: SingleChildScrollView(child: pager)),
-          if (strip) _Grabber(onOpen: onOpenMonth),
+            Flexible(
+              child: SingleChildScrollView(
+                child: t == 0 || t == 1 ? pager : _folding(t, grid(0)),
+              ),
+            ),
+          if (!expanded) handle(const _Handle()),
         ],
       ),
     );
@@ -277,18 +322,14 @@ class _PagerState extends State<_Pager> with SingleTickerProviderStateMixin {
 class _Header extends StatelessWidget {
   const _Header({
     required this.month,
-    required this.strip,
     required this.expanded,
     required this.onToday,
-    required this.onOpenMonth,
     required this.onToggleExpanded,
   });
 
   final DateTime month;
-  final bool strip;
   final bool expanded;
   final VoidCallback onToday;
-  final VoidCallback onOpenMonth;
   final VoidCallback? onToggleExpanded;
 
   @override
@@ -312,12 +353,6 @@ class _Header extends StatelessWidget {
             color: AppColors.mutedForeground,
           ),
         ),
-        if (strip)
-          const Icon(
-            Icons.keyboard_arrow_down,
-            size: 20,
-            color: AppColors.mutedForeground,
-          ),
       ],
     );
     return Padding(
@@ -329,14 +364,7 @@ class _Header extends StatelessWidget {
             child: FittedBox(
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,
-              child: strip
-                  ? Semantics(
-                      button: true,
-                      label: 'Show month',
-                      excludeSemantics: true,
-                      child: GestureDetector(onTap: onOpenMonth, child: title),
-                    )
-                  : title,
+              child: title,
             ),
           ),
           TextButton(
@@ -395,38 +423,104 @@ class _Weekdays extends StatelessWidget {
   );
 }
 
-/// Under the week strip: tap or drag down to open the month again.
-class _Grabber extends StatelessWidget {
-  const _Grabber({required this.onOpen});
-
-  final VoidCallback onOpen;
+/// The bar under the calendar: a hint that it folds by dragging, here or on
+/// the tab bar. It has no tap.
+class _Handle extends StatelessWidget {
+  const _Handle();
 
   @override
   Widget build(BuildContext context) => Semantics(
-    button: true,
-    label: 'Show month',
-    excludeSemantics: true,
-    child: GestureDetector(
-      onTap: onOpen,
-      onVerticalDragEnd: (d) {
-        if ((d.primaryVelocity ?? 0) > 0) onOpen();
-      },
-      behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: const EdgeInsets.only(top: 6, bottom: 2),
-        child: Center(
-          child: Container(
-            width: 36,
-            height: 4,
-            decoration: BoxDecoration(
-              color: AppColors.controlBorder,
-              borderRadius: BorderRadius.circular(2),
-            ),
+    label: 'Drag to fold the calendar',
+    child: Padding(
+      padding: const EdgeInsets.only(top: 6, bottom: 2),
+      child: Center(
+        child: Container(
+          width: 36,
+          height: 4,
+          decoration: BoxDecoration(
+            color: AppColors.controlBorder,
+            borderRadius: BorderRadius.circular(2),
           ),
         ),
       ),
     ),
   );
+}
+
+/// Owns the fold between month (1) and week strip (0) and lets a vertical
+/// drag pull it with the finger: down opens the month, up folds it to a
+/// week. Let go past half way, or flick, and it finishes; otherwise it goes
+/// back. A change from elsewhere (a day tap, "Today", clearing the day)
+/// animates the same fold.
+class CalendarFold extends StatefulWidget {
+  const CalendarFold({
+    super.key,
+    required this.showsWeek,
+    required this.onOpen,
+    required this.onFold,
+    required this.builder,
+  });
+
+  final bool showsWeek;
+  final VoidCallback onOpen;
+  final VoidCallback onFold;
+
+  /// [handle] wraps whatever should drag the fold: the tab bar, the bar.
+  final Widget Function(
+    BuildContext context,
+    Animation<double> fold,
+    Widget Function(Widget child) handle,
+  )
+  builder;
+
+  @override
+  State<CalendarFold> createState() => _CalendarFoldState();
+}
+
+class _CalendarFoldState extends State<CalendarFold>
+    with SingleTickerProviderStateMixin {
+  // ponytail: a fixed pull distance, about four 40px rows; measure the
+  // month's real height if 4- and 6-row months feel off.
+  static const _pull = 160.0;
+
+  late final _fold = AnimationController(
+    vsync: this,
+    value: widget.showsWeek ? 0 : 1,
+    duration: const Duration(milliseconds: 250),
+  );
+
+  @override
+  void didUpdateWidget(CalendarFold old) {
+    super.didUpdateWidget(old);
+    if (old.showsWeek != widget.showsWeek) _settle(open: !widget.showsWeek);
+  }
+
+  @override
+  void dispose() {
+    _fold.dispose();
+    super.dispose();
+  }
+
+  void _settle({required bool open}) =>
+      _fold.animateTo(open ? 1 : 0, curve: Curves.easeOutCubic);
+
+  void _end(DragEndDetails d) {
+    final v = d.primaryVelocity ?? 0;
+    final open = v.abs() > 300 ? v > 0 : _fold.value > 0.5;
+    _settle(open: open);
+    if (open == widget.showsWeek) (open ? widget.onOpen : widget.onFold)();
+  }
+
+  Widget _handle(Widget child) => GestureDetector(
+    behavior: HitTestBehavior.translucent,
+    onVerticalDragStart: (_) => _fold.stop(),
+    onVerticalDragUpdate: (d) => _fold.value += d.delta.dy / _pull,
+    onVerticalDragEnd: _end,
+    child: child,
+  );
+
+  @override
+  Widget build(BuildContext context) => widget.builder(context, _fold, _handle);
 }
 
 class _Day extends StatelessWidget {

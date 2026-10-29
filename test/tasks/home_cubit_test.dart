@@ -91,6 +91,21 @@ void main() {
     expect(cubit.state.month, DateTime(2026, 10));
   });
 
+  test('folding to a week: the selected day, else today, else the first', () {
+    cubit.foldToWeek();
+    expect(cubit.state.showsWeek, isTrue);
+    expect(cubit.state.week, DateTime(2026, 10, 5));
+    cubit.openMonth();
+    cubit.changeMonth(1);
+    cubit.foldToWeek();
+    expect(cubit.state.week, DateTime(2026, 10, 26)); // Nov 1's Monday
+    cubit.selectDay(DateTime(2026, 11, 18));
+    cubit.openMonth();
+    cubit.foldToWeek();
+    expect(cubit.state.week, DateTime(2026, 11, 16));
+    expect(cubit.state.selectedDay, DateTime(2026, 11, 18));
+  });
+
   test('clearing the day reopens the month', () {
     cubit.selectDay(DateTime(2026, 10, 14));
     cubit.clearDay();

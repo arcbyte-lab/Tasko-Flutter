@@ -54,6 +54,16 @@ DayGroup dayGroup(Task t, DateTime now) {
 DateTime mondayOf(DateTime d) =>
     DateTime(d.year, d.month, d.day - d.weekday + 1);
 
+/// The week [month] folds to: the [selected] day's if it is in [month],
+/// else [today]'s, else the month's first week. As its Monday.
+DateTime foldWeek(DateTime month, DateTime? selected, DateTime today) {
+  bool inMonth(DateTime? d) =>
+      d != null && d.year == month.year && d.month == month.month;
+  if (inMonth(selected)) return mondayOf(selected!);
+  if (inMonth(today)) return mondayOf(today);
+  return mondayOf(DateTime(month.year, month.month));
+}
+
 /// Open tasks by the calendar day they are due, each day in [taskOrder]
 /// (arcbyte decisions 0003, 0016). Any day before today is overdue.
 Map<DateTime, List<Task>> dueByDate(Iterable<Task> tasks) {
