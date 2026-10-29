@@ -155,7 +155,9 @@ class _Tab extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(8, 6, 8, 12),
         child: Text(
           tab.name,
+          // Monospace, like the group labels above (owner, 2026-10-29).
           style: TextStyle(
+            fontFamily: fontMono,
             fontSize: 13,
             fontWeight: FontWeight.w500,
             color: active ? AppColors.foreground : AppColors.mutedForeground,
@@ -186,6 +188,7 @@ class _NewProject extends StatelessWidget {
             Text(
               'new project',
               style: TextStyle(
+                fontFamily: fontMono,
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
                 color: AppColors.mutedForeground,
