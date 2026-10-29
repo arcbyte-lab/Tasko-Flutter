@@ -42,8 +42,30 @@ class HomeState {
   /// ready while a swipe drags them into view.
   final Map<TaskTab, List<Task>> tasksByTab;
 
-  /// Every task in [activeTab], unfiltered.
-  List<Task> get tasks => tasksByTab[activeTab] ?? const [];
+  bool get _myTasks => activeTab?.kind == TabKind.myTasks;
+
+  /// Every task in [activeTab], unfiltered. For "my tasks", the user's
+  /// tasks gathered from every other tab (decision 0017).
+  // ponytail: gathered on every read; keep it in the state if users in many
+  // tabs find the list slow.
+  List<Task> get tasks => _myTasks
+      ? [
+          for (final MapEntry(key: tab, value: list) in tasksByTab.entries)
+            for (final t in list)
+              if (user != null && isMine(t, tab, user!.id)) t,
+        ]
+      : tasksByTab[activeTab] ?? const [];
+
+  /// The tab [t] lives in: the active one, except in "my tasks".
+  TaskTab? tabOf(Task t) {
+    for (final MapEntry(key: tab, value: list) in tasksByTab.entries) {
+      if (list.any((x) => x.id == t.id && x.personal == t.personal)) {
+        return tab;
+      }
+    }
+    return null;
+  }
+
   final DateTime? selectedDay;
   final bool showCompleted;
 
@@ -59,7 +81,13 @@ class HomeState {
   /// Each tab's members, for assignee names. Empty for `private`.
   final Map<TaskTab, List<Member>> membersByTab;
 
-  List<Member> get members => membersByTab[activeTab] ?? const [];
+  /// The active tab's members; in "my tasks", everyone in any tab, once.
+  List<Member> get members => _myTasks
+      ? {
+          for (final list in membersByTab.values)
+            for (final m in list) m.user.id: m,
+        }.values.toList()
+      : membersByTab[activeTab] ?? const [];
 
   /// The calendar fills the screen; tabs and list are hidden.
   final bool calendarExpanded;
@@ -112,7 +140,9 @@ class HomeState {
 
   /// Open tasks by due day, for the calendar's dots and full-screen titles.
   /// Not just [month]: the week strip can cross into the next one.
-  Map<DateTime, List<Task>> get dueOn => dueByDate(tasks);
+  /// In "my tasks" a review counts too: it is open for its reviewer.
+  Map<DateTime, List<Task>> get dueOn =>
+      dueByDate(tasks, counts: _myTasks ? isOpenOrReview : isOpen);
 
   HomeState copyWith({
     DateTime? month,
@@ -163,6 +193,8 @@ class HomeCubit extends Cubit<HomeState> {
   /// Loads every tab at once, so a swipe never waits on the network.
   // ponytail: one request per tab on load; fine for a handful of tabs, page
   // them in lazily if users end up in dozens of projects.
+  /// "my tasks" comes first and opens (decision 0017); it has no tasks or
+  /// members of its own.
   Future<void> load() async {
     final user = await _api.me();
     final tabs = await _api.myTabs();
@@ -171,8 +203,8 @@ class HomeCubit extends Cubit<HomeState> {
     emit(
       state.copyWith(
         user: user,
-        tabs: tabs,
-        activeTab: tabs.first,
+        tabs: [TaskTab.myTasks, ...tabs],
+        activeTab: TaskTab.myTasks,
         tasksByTab: Map.fromIterables(tabs, tasks),
         membersByTab: Map.fromIterables(tabs, members),
         unread: await _unread(),
@@ -215,13 +247,13 @@ class HomeCubit extends Cubit<HomeState> {
     ]);
     final members = await Future.wait(tabs.map(_api.membersOf));
     final next = state.copyWith(
-      tabs: tabs,
+      tabs: [TaskTab.myTasks, ...tabs],
       tasksByTab: Map.fromIterables(tabs, tasks),
       membersByTab: Map.fromIterables(tabs, members),
     );
-    final active = tabs.firstWhere(
+    final active = next.tabs.firstWhere(
       (t) => t == state.activeTab,
-      orElse: () => tabs.first,
+      orElse: () => TaskTab.myTasks,
     );
     // Same tab: take the fresh object, which carries the viewer's new role.
     emit(
@@ -238,9 +270,17 @@ class HomeCubit extends Cubit<HomeState> {
     emit(state.copyWith(unread: await _unread()));
   }
 
+  /// "my tasks" refreshes every tab it gathers from.
   Future<void> _refresh(TaskTab tab) async {
-    final tasks = await _api.tasksFor(tab);
-    emit(state.copyWith(tasksByTab: {...state.tasksByTab, tab: tasks}));
+    final tabs = tab.kind == TabKind.myTasks
+        ? state.tasksByTab.keys.toList()
+        : [tab];
+    final tasks = await Future.wait(tabs.map(_api.tasksFor));
+    emit(
+      state.copyWith(
+        tasksByTab: {...state.tasksByTab, ...Map.fromIterables(tabs, tasks)},
+      ),
+    );
   }
 
   Future<int> _unread() async =>
@@ -302,15 +342,17 @@ class HomeCubit extends Cubit<HomeState> {
   Future<void> tick(Task task, {String? proofUrl}) async {
     final next = statusAfterTick(task, proofUrl: proofUrl);
     if (next == null) return;
+    // In "my tasks" the task lives in another tab.
+    final tab = state.tabOf(task) ?? state.activeTab!;
     final updated = await _api.setStatus(task, next, proofUrl: proofUrl);
     // Finishing a repeating task made the next one on the server.
-    if (task.repeat != null) return _refresh(state.activeTab!);
+    if (task.repeat != null) return _refresh(tab);
     emit(
       state.copyWith(
         tasksByTab: {
           ...state.tasksByTab,
-          state.activeTab!: [
-            for (final t in state.tasks)
+          tab: [
+            for (final t in state.tasksByTab[tab] ?? const <Task>[])
               t.id == updated.id && t.personal == updated.personal
                   ? updated
                   : t,

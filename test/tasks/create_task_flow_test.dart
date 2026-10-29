@@ -27,6 +27,8 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text(tab));
+    await tester.pumpAndSettle();
     await tester.tap(find.text(tab));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Create task'));

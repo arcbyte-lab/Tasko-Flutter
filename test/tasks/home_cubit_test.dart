@@ -16,15 +16,56 @@ void main() {
   Task named(String name) =>
       cubit.state.tasks.firstWhere((t) => t.name == name);
 
-  test('loads private first, then divisions, then projects', () {
+  test('loads my tasks first and opens on it, then private, divisions, '
+      'projects (0017)', () {
     expect(cubit.state.tabs.map((t) => t.name), [
+      'my tasks',
       'private',
       'tech',
       'tasko-app',
       'tasko-web',
     ]);
-    expect(cubit.state.activeTab, TaskTab.private);
-    expect(cubit.state.tasks.every((t) => t.personal), isTrue);
+    expect(cubit.state.activeTab, TaskTab.myTasks);
+    expect(cubit.state.tasksByTab.keys, isNot(contains(TaskTab.myTasks)));
+  });
+
+  test('my tasks: personal, assigned to me, and my reviews (0017)', () async {
+    final me = cubit.state.user!.id;
+    final mine = cubit.state.tasks;
+    // Every personal task.
+    expect(
+      mine.where((t) => t.personal).length,
+      cubit.state.tasksByTab[TaskTab.private]!.length,
+    );
+    for (final t in mine.where((t) => !t.personal)) {
+      final tab = cubit.state.tabOf(t)!;
+      expect(
+        t.assigneeId == me || (t.status == TaskStatus.review && canReview(tab)),
+        isTrue,
+        reason: t.name,
+      );
+    }
+    // No task twice.
+    expect(mine.map((t) => (t.id, t.personal)).toSet().length, mine.length);
+  });
+
+  test('my tasks: the dots count a review', () {
+    final review = cubit.state.tasks.firstWhere(
+      (t) => t.status == TaskStatus.review && t.dueDate != null,
+    );
+    final day = dateOnly(review.dueDate!);
+    expect(cubit.state.dueOn[day], contains(review));
+  });
+
+  test('ticking in my tasks updates the tab the task lives in', () async {
+    final t = cubit.state.tasks.firstWhere(
+      (t) => !t.personal && isOpen(t) && t.requiredProofType == null,
+    );
+    final home = cubit.state.tabOf(t)!;
+    await cubit.tick(t);
+    final after = cubit.state.tasksByTab[home]!.firstWhere((x) => x.id == t.id);
+    expect(after.status, TaskStatus.done);
+    expect(cubit.state.activeTab, TaskTab.myTasks);
   });
 
   test(

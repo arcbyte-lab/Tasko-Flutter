@@ -169,7 +169,9 @@ class RepeatingSeries {
   final bool ended;
 }
 
-enum TabKind { private, division, project }
+/// [myTasks] is not a place: it gathers the user's tasks from the other
+/// tabs (arcbyte decision 0017) and never goes to the API.
+enum TabKind { myTasks, private, division, project }
 
 /// A tab on the home screen: `private`, a division, or a project
 /// (arcbyte decision 0002).
@@ -186,6 +188,7 @@ class TaskTab {
   final String? role;
 
   static const private = TaskTab(TabKind.private, 0, 'private');
+  static const myTasks = TaskTab(TabKind.myTasks, 0, 'my tasks');
 
   @override
   bool operator ==(Object other) =>

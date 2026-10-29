@@ -49,7 +49,7 @@ void main() {
       await home.reloadTabs();
 
       expect(home.state.tabs, isNot(contains(app)));
-      expect(home.state.activeTab, TaskTab.private);
+      expect(home.state.activeTab, TaskTab.myTasks);
     });
   });
 
@@ -73,6 +73,8 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.byTooltip('Members'), findsNothing); // private tab
+      await tester.ensureVisible(find.text(tab));
+      await tester.pumpAndSettle();
       await tester.tap(find.text(tab));
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('Members'));

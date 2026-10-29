@@ -38,6 +38,8 @@ void main() {
   }
 
   Future<void> tab(WidgetTester tester, String name) async {
+    await tester.ensureVisible(find.text(name));
+    await tester.pumpAndSettle();
     await tester.tap(find.text(name));
     await tester.pumpAndSettle();
   }

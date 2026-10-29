@@ -85,8 +85,10 @@ class HomeView extends StatelessWidget {
     final completed = page.completed;
     final day = page.selectedDay;
 
+    final mine = page.activeTab?.kind == TabKind.myTasks;
     Widget row(Task t) => TaskRow(
       task: t,
+      tabName: mine ? page.tabOf(t)?.name : null,
       now: page.today,
       onTick: () => onTick(t),
       onTap: () => onOpen(t),

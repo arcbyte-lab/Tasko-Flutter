@@ -96,6 +96,32 @@ void main() {
     );
   });
 
+  test('my tasks: who reviews, and what is mine (0004, 0017)', () {
+    const lead = TaskTab(TabKind.division, 1, 'tech', role: 'supervisor');
+    const member = TaskTab(TabKind.division, 1, 'tech', role: 'member');
+    const pic = TaskTab(TabKind.project, 2, 'web', role: 'person-in-charge');
+    expect([lead, member, pic, TaskTab.private].map(canReview), [
+      true,
+      false,
+      true,
+      false,
+    ]);
+
+    final mine = task(TaskStatus.waiting, assignee: 7);
+    final theirs = task(TaskStatus.waiting, assignee: 8);
+    final unassigned = task(TaskStatus.waiting);
+    final theirReview = task(TaskStatus.review, assignee: 8);
+    final personal = task(TaskStatus.todo, personal: true);
+    expect(isMine(mine, member, 7), isTrue);
+    expect(isMine(theirs, member, 7), isFalse);
+    expect(isMine(unassigned, lead, 7), isFalse);
+    expect(isMine(theirReview, lead, 7), isTrue);
+    expect(isMine(theirReview, member, 7), isFalse);
+    expect(isMine(personal, TaskTab.private, 7), isTrue);
+    expect(isOpenOrReview(theirReview), isTrue);
+    expect(isOpenOrReview(task(TaskStatus.done)), isFalse);
+  });
+
   test('monday of the week, across a month end', () {
     expect(mondayOf(DateTime(2026, 10, 7, 23, 59)), DateTime(2026, 10, 5));
     expect(mondayOf(DateTime(2026, 11, 1)), DateTime(2026, 10, 26));

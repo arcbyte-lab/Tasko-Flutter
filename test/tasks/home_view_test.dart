@@ -33,6 +33,8 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text(tab));
+    await tester.pumpAndSettle();
     await tester.tap(find.text(tab));
     await tester.pumpAndSettle();
   }
@@ -96,6 +98,17 @@ void main() {
     await tester.tap(find.text('Oct 14'));
     await tester.pumpAndSettle();
     expect(find.text('Fix login redirect'), findsOneWidget);
+  });
+
+  testWidgets('my tasks: rows name their tab; no tab-only buttons', (
+    tester,
+  ) async {
+    await pump(tester, tab: 'my tasks');
+    expect(find.textContaining('· tasko-web'), findsWidgets);
+    expect(find.textContaining('· private'), findsWidgets);
+    for (final tip in ['Members', 'Repeating', 'Activity']) {
+      expect(find.byTooltip(tip), findsNothing);
+    }
   });
 
   testWidgets('an empty tab shows the empty state', (tester) async {
@@ -295,10 +308,11 @@ void main() {
     });
 
     testWidgets('stops at both ends', (tester) async {
-      await startOn(tester, 'private');
-      await fling(tester, 300);
-      expect(find.text('Renew passport'), findsOneWidget);
+      await startOn(tester, 'my tasks');
+      await fling(tester, 300); // my tasks is the first
+      expect(find.text('Pay internet bill'), findsOneWidget); // private's, mine
 
+      await fling(tester, -300); // private
       await fling(tester, -300); // tech
       await fling(tester, -300); // tasko-app
       await fling(tester, -300); // tasko-web, the last

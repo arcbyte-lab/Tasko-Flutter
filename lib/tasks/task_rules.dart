@@ -66,10 +66,13 @@ DateTime foldWeek(DateTime month, DateTime? selected, DateTime today) {
 
 /// Open tasks by the calendar day they are due, each day in [taskOrder]
 /// (arcbyte decisions 0003, 0016). Any day before today is overdue.
-Map<DateTime, List<Task>> dueByDate(Iterable<Task> tasks) {
+Map<DateTime, List<Task>> dueByDate(
+  Iterable<Task> tasks, {
+  bool Function(Task) counts = isOpen,
+}) {
   final days = <DateTime, List<Task>>{};
   for (final t in tasks) {
-    if (!isOpen(t) || t.dueDate == null) continue;
+    if (!counts(t) || t.dueDate == null) continue;
     days.putIfAbsent(dateOnly(t.dueDate!), () => []).add(t);
   }
   for (final list in days.values) {
@@ -250,3 +253,19 @@ bool canViewDivisionLog(TaskTab tab) => canCreateProject(tab);
 /// The viewer may open [tab]'s activity log: a project's owners and
 /// persons-in-charge. Leading its division is not enough (decision 0014).
 bool canViewProjectLog(TaskTab tab) => canManageMembers(tab);
+
+/// The viewer reviews tasks in [tab] (arcbyte decision 0004): a division's
+/// admins and supervisors, a project's owner and person-in-charge.
+bool canReview(TaskTab tab) => canCreateProject(tab) || canManageMembers(tab);
+
+/// [t], which lives in [tab], shows in "my tasks" for user [meId]
+/// (decision 0017): every personal task, team tasks assigned to them, and
+/// tasks waiting for their review.
+bool isMine(Task t, TaskTab tab, int meId) =>
+    tab.kind == TabKind.private ||
+    t.assigneeId == meId ||
+    (t.status == TaskStatus.review && canReview(tab));
+
+/// What the calendar counts in "my tasks": open tasks, and reviews, which
+/// are open for their reviewer.
+bool isOpenOrReview(Task t) => isOpen(t) || t.status == TaskStatus.review;
