@@ -4,7 +4,8 @@ import '../../core/theme/app_theme.dart';
 import '../models.dart';
 import '../task_rules.dart';
 
-/// Checkbox, title, then "priority · status · due" (hifi H1 task row).
+/// Checkbox, title, then "priority · status · due" (hifi H1 task row), and
+/// " · tab" when [tabName] is given (in "my tasks", decision 0017).
 class TaskRow extends StatelessWidget {
   const TaskRow({
     super.key,
@@ -12,9 +13,13 @@ class TaskRow extends StatelessWidget {
     required this.now,
     required this.onTick,
     required this.onTap,
+    this.tabName,
   });
 
   final Task task;
+
+  /// The tab the task lives in, shown last in the meta line.
+  final String? tabName;
   final DateTime now;
   final VoidCallback onTick;
 
@@ -87,6 +92,7 @@ class TaskRow extends StatelessWidget {
                             style: overdue ? red : null,
                           ),
                         ],
+                        if (tabName != null) ...[dot, TextSpan(text: tabName)],
                       ],
                     ),
                     maxLines: 1,

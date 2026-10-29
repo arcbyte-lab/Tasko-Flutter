@@ -27,6 +27,8 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('tasko-web'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('tasko-web'));
     await tester.pumpAndSettle();
   }
@@ -100,6 +102,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('1 open'), findsOneWidget);
 
+    await tester.ensureVisible(find.text('tasko-app'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('tasko-app'));
     await tester.pumpAndSettle();
     expect(find.text('3 open'), findsOneWidget);

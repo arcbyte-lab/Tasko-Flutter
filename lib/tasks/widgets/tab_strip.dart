@@ -54,19 +54,32 @@ class _TabStripState extends State<TabStrip> {
 
   @override
   Widget build(BuildContext context) {
+    final mine = widget.tabs.where((t) => t.kind == TabKind.myTasks).toList();
     final workspaces = widget.tabs
-        .where((t) => t.kind != TabKind.project)
+        .where((t) => t.kind == TabKind.private || t.kind == TabKind.division)
         .toList();
     final projects = widget.tabs
         .where((t) => t.kind == TabKind.project)
         .toList();
 
-    Widget group(String label, List<TaskTab> items, {Widget? end}) => Column(
+    Widget group(
+      String label,
+      List<TaskTab> items, {
+      Widget? end,
+      bool hideLabel = false,
+    }) => Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.only(left: 8, top: 10),
-          child: Text(label, style: groupLabelStyle()),
+          // A hidden label still takes its line, so the tabs line up.
+          child: Opacity(
+            opacity: hideLabel ? 0 : 1,
+            child: ExcludeSemantics(
+              excluding: hideLabel,
+              child: Text(label, style: groupLabelStyle()),
+            ),
+          ),
         ),
         Row(
           children: [
@@ -87,6 +100,8 @@ class _TabStripState extends State<TabStrip> {
     final row = Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // "my tasks" first, with no group label (decision 0017).
+        if (mine.isNotEmpty) group('MY TASKS', mine, hideLabel: true),
         if (workspaces.isNotEmpty) group('WORKSPACES', workspaces),
         // Shown with no projects yet too, so a lead can make the first one.
         if (projects.isNotEmpty || widget.onNewProject != null)

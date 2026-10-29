@@ -52,7 +52,11 @@ class HomePanel extends StatelessWidget {
           final task = await showCreateTaskSheet(
             context,
             api: context.read<TasksApi>(),
-            tab: state.activeTab!,
+            // "my tasks" isn't a place: create in private until the tab
+            // picker (B19) lets the user choose.
+            tab: state.activeTab!.kind == TabKind.myTasks
+                ? TaskTab.private
+                : state.activeTab!,
             today: state.today,
           );
           if (task != null) await cubit.reload();

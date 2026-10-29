@@ -146,10 +146,11 @@ void main() {
       await waitFor(find.text('Invalid email or password'));
     });
 
-    await step('Mira logs in and sees her eight tabs', () async {
+    await step('Mira logs in and sees my tasks, then her eight tabs', () async {
       await logIn('mira@arcbyte.dev');
       await waitFor(find.text('welcome, Mira'));
       for (final t in [
+        'my tasks',
         'private',
         'tech',
         'ops',
