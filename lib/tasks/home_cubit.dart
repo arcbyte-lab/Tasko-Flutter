@@ -9,6 +9,7 @@ class HomeState {
   const HomeState({
     required this.today,
     required this.month,
+    required this.week,
     this.user,
     this.tabs = const [],
     this.activeTab,
@@ -20,6 +21,7 @@ class HomeState {
     this.query,
     this.membersByTab = const {},
     this.calendarExpanded = false,
+    this.monthOpen = true,
   });
 
   /// Midnight of the current day; the cubit reads the clock once per load.
@@ -27,6 +29,11 @@ class HomeState {
 
   /// The first of the month the calendar shows.
   final DateTime month;
+
+  /// The Monday of the week the collapsed calendar shows. Apart from
+  /// [selectedDay]: swiping the strip moves the week, not the selection
+  /// (arcbyte decision 0016).
+  final DateTime week;
   final User? user;
   final List<TaskTab> tabs;
   final TaskTab? activeTab;
@@ -56,6 +63,11 @@ class HomeState {
 
   /// The calendar fills the screen; tabs and list are hidden.
   final bool calendarExpanded;
+
+  /// The whole month shows. When false and a day is selected, the calendar
+  /// collapses to [week].
+  final bool monthOpen;
+  bool get showsWeek => selectedDay != null && !monthOpen;
 
   bool get loading => user == null;
   bool get searching => query != null;
@@ -88,17 +100,19 @@ class HomeState {
         );
 
   /// This state as the page for [tab] shows it: what [HomeCubit.selectTab]
-  /// will produce once that page settles.
+  /// will produce once that page settles. The selected day stays (0016).
   HomeState pageFor(TaskTab tab) => tab == activeTab
       ? this
       : copyWith(
           activeTab: tab,
-          selectedDay: () => null,
           showCompleted: false,
           view: view.withoutFilters(),
         );
 
   Map<int, int> get dueCountsThisMonth => dueCounts(tasks, month);
+
+  /// Open tasks due each day of [month], for the full-screen titles.
+  Map<int, List<Task>> get dueByDayThisMonth => dueByDay(tasks, month);
 
   /// Days of [month] that have an overdue task, for the dot under the cell.
   Set<int> get overdueDays => {
@@ -111,6 +125,7 @@ class HomeState {
 
   HomeState copyWith({
     DateTime? month,
+    DateTime? week,
     User? user,
     List<TaskTab>? tabs,
     TaskTab? activeTab,
@@ -122,9 +137,11 @@ class HomeState {
     String? Function()? query,
     Map<TaskTab, List<Member>>? membersByTab,
     bool? calendarExpanded,
+    bool? monthOpen,
   }) => HomeState(
     today: today,
     month: month ?? this.month,
+    week: week ?? this.week,
     user: user ?? this.user,
     tabs: tabs ?? this.tabs,
     activeTab: activeTab ?? this.activeTab,
@@ -136,6 +153,7 @@ class HomeState {
     query: query != null ? query() : this.query,
     membersByTab: membersByTab ?? this.membersByTab,
     calendarExpanded: calendarExpanded ?? this.calendarExpanded,
+    monthOpen: monthOpen ?? this.monthOpen,
   );
 }
 
@@ -145,8 +163,11 @@ class HomeCubit extends Cubit<HomeState> {
 
   final TasksApi _api;
 
-  static HomeState _initial(DateTime now) =>
-      HomeState(today: dateOnly(now), month: DateTime(now.year, now.month));
+  static HomeState _initial(DateTime now) => HomeState(
+    today: dateOnly(now),
+    month: DateTime(now.year, now.month),
+    week: mondayOf(now),
+  );
 
   /// Loads every tab at once, so a swipe never waits on the network.
   // ponytail: one request per tab on load; fine for a handful of tabs, page
@@ -234,23 +255,35 @@ class HomeCubit extends Cubit<HomeState> {
   Future<int> _unread() async =>
       (await _api.notifications()).where((n) => n.unread).length;
 
-  /// Tapping the selected day again clears the filter. In the full-screen
-  /// calendar a tap also collapses it, so the filtered list shows.
-  void selectDay(DateTime day) {
-    final same =
-        state.selectedDay != null && isSameDay(state.selectedDay!, day);
-    emit(
-      state.copyWith(
-        selectedDay: () => same ? null : day,
-        calendarExpanded: false,
-      ),
-    );
+  /// Selects [day], always: a second tap does not clear it (decision 0016).
+  /// The calendar collapses to the day's week, out of full screen too.
+  void selectDay(DateTime day) => emit(
+    state.copyWith(
+      selectedDay: () => dateOnly(day),
+      week: mondayOf(day),
+      month: DateTime(day.year, day.month),
+      monthOpen: false,
+      calendarExpanded: false,
+    ),
+  );
+
+  void goToToday() => selectDay(state.today);
+
+  /// Moves the collapsed calendar by weeks. The selected day and the list
+  /// stay; only a tap selects (decision 0016).
+  void changeWeek(int delta) {
+    final w = state.week;
+    final week = DateTime(w.year, w.month, w.day + 7 * delta);
+    emit(state.copyWith(week: week, month: DateTime(week.year, week.month)));
   }
+
+  void openMonth() => emit(state.copyWith(monthOpen: true));
 
   void toggleCalendar() =>
       emit(state.copyWith(calendarExpanded: !state.calendarExpanded));
 
-  void clearDay() => emit(state.copyWith(selectedDay: () => null));
+  void clearDay() =>
+      emit(state.copyWith(selectedDay: () => null, monthOpen: true));
 
   void changeMonth(int delta) => emit(
     state.copyWith(
