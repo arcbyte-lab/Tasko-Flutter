@@ -11,13 +11,14 @@ import 'package:tasko/tasks/widgets/task_row.dart';
 void main() {
   final now = DateTime(2026, 10, 7, 10);
   var loggedOut = false;
+  late HomeCubit cubit;
 
   Future<void> pump(WidgetTester tester, {String tab = 'tasko-web'}) async {
     tester.view.physicalSize = const Size(393 * 3, 852 * 3);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
     final api = FakeTasksApi(today: now);
-    final cubit = HomeCubit(api, now: () => now);
+    cubit = HomeCubit(api, now: () => now);
     await tester.pumpWidget(
       MaterialApp(
         theme: appTheme,
@@ -45,6 +46,16 @@ void main() {
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(finder, 100, scrollable: list);
   }
+
+  Finder day(int d) => find.bySemanticsLabel(RegExp('^Day $d(,|\$)'));
+
+  // The dots under [d]'s number, as their colours.
+  List<Color?> dotsOf(WidgetTester tester, int d) => [
+    for (final c in tester.widgetList<Container>(
+      find.descendant(of: day(d), matching: find.byType(Container)),
+    ))
+      if (c.constraints?.maxWidth == 4) (c.decoration as BoxDecoration?)?.color,
+  ];
 
   Future<Finder> checkboxOf(WidgetTester tester, String title) async {
     await scrollTo(tester, find.text(title));
@@ -74,7 +85,7 @@ void main() {
     tester,
   ) async {
     await pump(tester);
-    await tester.tap(find.bySemanticsLabel('Day 14'));
+    await tester.tap(day(14));
     await tester.pumpAndSettle();
     expect(find.text('Oct 14'), findsOneWidget);
     expect(find.text('5 open'), findsOneWidget);
@@ -118,14 +129,74 @@ void main() {
     await tester.tap(find.byTooltip('Expand calendar'));
     await tester.pumpAndSettle();
     expect(find.text('WORKSPACES'), findsNothing);
-    expect(find.text('Fix login redirect'), findsNothing);
-    expect(find.text('5'), findsWidgets); // Oct 14's open count, in its cell
+    expect(find.byType(TaskRow), findsNothing);
+    // Oct 14 has 4 open tasks (QA checkout flow is in review): 2 and more.
+    expect(find.text('Design empty state'), findsOneWidget);
+    expect(find.text('Fix navbar on mobile'), findsOneWidget);
+    expect(find.text('Write release notes'), findsNothing);
+    expect(find.text('+2 more'), findsOneWidget);
 
-    await tester.tap(find.bySemanticsLabel('Day 14'));
+    // A title opens its day (0016).
+    await tester.tap(find.text('Design empty state'));
     await tester.pumpAndSettle();
     expect(find.text('WORKSPACES'), findsOneWidget);
     expect(find.text('Oct 14'), findsOneWidget);
+    expect(find.text('5 open'), findsOneWidget);
     expect(find.byTooltip('Expand calendar'), findsOneWidget);
+  });
+
+  testWidgets('days show dots; an overdue day is red (0016)', (tester) async {
+    await pump(tester);
+    expect(find.text('MONTHLY'), findsNothing);
+    expect(find.text('2026'), findsOneWidget);
+    expect(day(14), findsOneWidget);
+    expect(find.bySemanticsLabel('Day 14, 4 open'), findsOneWidget);
+    expect(dotsOf(tester, 14), [
+      AppColors.primary,
+      AppColors.primary,
+      AppColors.primary,
+    ]);
+    expect(dotsOf(tester, 3), [AppColors.destructive]); // Fix login redirect
+    expect(dotsOf(tester, 10), isEmpty);
+  });
+
+  testWidgets('a day tap collapses to its week; a swipe keeps the day', (
+    tester,
+  ) async {
+    await pump(tester);
+    await tester.tap(day(14));
+    await tester.tap(day(14)); // a second tap keeps it
+    await tester.pumpAndSettle();
+    expect(day(1), findsNothing);
+    expect(day(18), findsOneWidget);
+    expect(find.bySemanticsLabel('Show month'), findsWidgets);
+
+    await tester.fling(day(15), const Offset(-300, 0), 1000);
+    await tester.pumpAndSettle();
+    expect(day(21), findsOneWidget);
+    expect(day(14), findsNothing);
+    expect(find.text('Oct 14'), findsOneWidget);
+    expect(find.text('5 open'), findsOneWidget);
+
+    await tester.tap(find.bySemanticsLabel('Show month').first);
+    await tester.pumpAndSettle();
+    expect(day(1), findsOneWidget);
+    expect(find.text('Oct 14'), findsOneWidget);
+  });
+
+  testWidgets('Today selects today from another month', (tester) async {
+    await pump(tester);
+    await tester.fling(day(15), const Offset(-300, 0), 1000);
+    await tester.pumpAndSettle();
+    expect(find.text('November'), findsOneWidget);
+
+    await tester.tap(find.text('Today'));
+    await tester.pumpAndSettle();
+    expect(find.text('October'), findsOneWidget);
+    expect(cubit.state.selectedDay, DateTime(2026, 10, 7));
+    expect(find.text('Oct 7'), findsOneWidget);
+    expect(day(5), findsOneWidget);
+    expect(day(12), findsNothing);
   });
 
   testWidgets('the account menu shows name and email', (tester) async {

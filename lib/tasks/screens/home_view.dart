@@ -18,6 +18,9 @@ class HomeView extends StatelessWidget {
     required this.onDayTap,
     required this.onClearDay,
     required this.onMonthChange,
+    required this.onWeekChange,
+    required this.onToday,
+    required this.onOpenMonth,
     required this.onToggleCompleted,
     required this.onTick,
     required this.onOpen,
@@ -42,6 +45,9 @@ class HomeView extends StatelessWidget {
   final ValueChanged<DateTime> onDayTap;
   final VoidCallback onClearDay;
   final ValueChanged<int> onMonthChange;
+  final ValueChanged<int> onWeekChange;
+  final VoidCallback onToday;
+  final VoidCallback onOpenMonth;
   final VoidCallback onToggleCompleted;
   final ValueChanged<Task> onTick;
   final VoidCallback onCreate;
@@ -152,16 +158,29 @@ class HomeView extends StatelessWidget {
             Flexible(
               flex: state.calendarExpanded ? 1 : 0,
               fit: state.calendarExpanded ? FlexFit.tight : FlexFit.loose,
-              child: PulsePanel(
-                expanded: state.calendarExpanded,
-                onToggleExpanded: onToggleCalendar,
-                month: state.month,
-                today: state.today,
-                counts: state.dueCountsThisMonth,
-                overdueDays: state.overdueDays,
-                selectedDay: state.selectedDay,
-                onDayTap: onDayTap,
-                onMonthChange: onMonthChange,
+              child: ConstrainedBox(
+                // A short (landscape) screen keeps room for the list; the
+                // month scrolls inside the panel.
+                constraints: BoxConstraints(
+                  maxHeight: state.calendarExpanded
+                      ? double.infinity
+                      : MediaQuery.sizeOf(context).height * 0.4,
+                ),
+                child: PulsePanel(
+                  expanded: state.calendarExpanded,
+                  onToggleExpanded: onToggleCalendar,
+                  month: state.month,
+                  week: state.week,
+                  today: state.today,
+                  dueOn: state.dueOn,
+                  selectedDay: state.selectedDay,
+                  showsWeek: state.showsWeek,
+                  onDayTap: onDayTap,
+                  onMonthChange: onMonthChange,
+                  onWeekChange: onWeekChange,
+                  onToday: onToday,
+                  onOpenMonth: onOpenMonth,
+                ),
               ),
             ),
             // The full-screen calendar hides the tabs and the list.

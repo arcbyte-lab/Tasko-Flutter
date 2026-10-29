@@ -111,17 +111,9 @@ class HomeState {
 
   Map<int, int> get dueCountsThisMonth => dueCounts(tasks, month);
 
-  /// Open tasks due each day of [month], for the full-screen titles.
-  Map<int, List<Task>> get dueByDayThisMonth => dueByDay(tasks, month);
-
-  /// Days of [month] that have an overdue task, for the dot under the cell.
-  Set<int> get overdueDays => {
-    for (final t in tasks)
-      if (isOverdue(t, today) &&
-          t.dueDate!.year == month.year &&
-          t.dueDate!.month == month.month)
-        t.dueDate!.day,
-  };
+  /// Open tasks by due day, for the calendar's dots and full-screen titles.
+  /// Not just [month]: the week strip can cross into the next one.
+  Map<DateTime, List<Task>> get dueOn => dueByDate(tasks);
 
   HomeState copyWith({
     DateTime? month,
