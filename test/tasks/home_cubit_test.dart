@@ -27,21 +27,79 @@ void main() {
     expect(cubit.state.tasks.every((t) => t.personal), isTrue);
   });
 
-  test('changing tab loads its tasks and clears the day filter', () async {
-    cubit.selectDay(DateTime(2026, 10, 14));
-    await cubit.selectTab(FakeTasksApi.taskoWeb);
-    expect(cubit.state.tasks.any((t) => t.name == 'Fix login redirect'), true);
-    expect(cubit.state.selectedDay, isNull);
+  test(
+    'changing tab loads its tasks and keeps the day filter (0016)',
+    () async {
+      final oct14 = DateTime(2026, 10, 14);
+      cubit.selectDay(oct14);
+      await cubit.selectTab(FakeTasksApi.taskoWeb);
+      expect(
+        cubit.state.tasks.any((t) => t.name == 'Fix login redirect'),
+        true,
+      );
+      expect(cubit.state.selectedDay, oct14);
+      expect(cubit.state.listed, hasLength(5));
+    },
+  );
+
+  test(
+    'selecting a day filters and collapses; again keeps it (0016)',
+    () async {
+      await cubit.selectTab(FakeTasksApi.taskoWeb);
+      final oct14 = DateTime(2026, 10, 14);
+      cubit.selectDay(oct14);
+      expect(cubit.state.listed, hasLength(5));
+      expect(
+        cubit.state.listed.every((t) => isSameDay(t.dueDate!, oct14)),
+        true,
+      );
+      expect(cubit.state.showsWeek, isTrue);
+      expect(cubit.state.week, DateTime(2026, 10, 12));
+      cubit.selectDay(oct14);
+      expect(cubit.state.selectedDay, oct14);
+      expect(cubit.state.listed, hasLength(5));
+    },
+  );
+
+  test('a day tap leaves the full-screen calendar', () {
+    cubit.toggleCalendar();
+    cubit.selectDay(DateTime(2026, 10, 20));
+    expect(cubit.state.calendarExpanded, isFalse);
+    expect(cubit.state.showsWeek, isTrue);
   });
 
-  test('selecting a day filters; selecting it again clears', () async {
+  test('Today selects today from another month', () {
+    cubit.changeMonth(2);
+    cubit.goToToday();
+    expect(cubit.state.selectedDay, DateTime(2026, 10, 7));
+    expect(cubit.state.month, DateTime(2026, 10));
+    expect(cubit.state.week, DateTime(2026, 10, 5));
+  });
+
+  test('swiping the week strip moves the week, not the selection', () async {
     await cubit.selectTab(FakeTasksApi.taskoWeb);
-    final oct14 = DateTime(2026, 10, 14);
-    cubit.selectDay(oct14);
-    expect(cubit.state.listed, hasLength(5));
-    expect(cubit.state.listed.every((t) => isSameDay(t.dueDate!, oct14)), true);
-    cubit.selectDay(oct14);
+    final oct28 = DateTime(2026, 10, 28);
+    cubit.selectDay(oct28);
+    final listed = cubit.state.listed;
+    cubit.changeWeek(1);
+    expect(cubit.state.week, DateTime(2026, 11, 2));
+    expect(cubit.state.month, DateTime(2026, 11));
+    expect(cubit.state.selectedDay, oct28);
+    expect(cubit.state.listed, listed);
+    cubit.changeWeek(-2);
+    expect(cubit.state.week, DateTime(2026, 10, 19));
+    expect(cubit.state.month, DateTime(2026, 10));
+  });
+
+  test('clearing the day reopens the month', () {
+    cubit.selectDay(DateTime(2026, 10, 14));
+    cubit.clearDay();
     expect(cubit.state.selectedDay, isNull);
+    expect(cubit.state.monthOpen, isTrue);
+    cubit.selectDay(DateTime(2026, 10, 14));
+    cubit.openMonth();
+    expect(cubit.state.showsWeek, isFalse);
+    expect(cubit.state.selectedDay, DateTime(2026, 10, 14));
   });
 
   test('changing month moves the calendar only', () {

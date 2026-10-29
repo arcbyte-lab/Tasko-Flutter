@@ -50,18 +50,38 @@ DayGroup dayGroup(Task t, DateTime now) {
   return DayGroup.later;
 }
 
-/// Open tasks due on each day of [month], keyed by day of month
-/// (arcbyte decision 0003).
-Map<int, int> dueCounts(Iterable<Task> tasks, DateTime month) {
-  final counts = <int, int>{};
+/// The Monday of [d]'s week, at midnight.
+DateTime mondayOf(DateTime d) =>
+    DateTime(d.year, d.month, d.day - d.weekday + 1);
+
+/// Open tasks due on each day of [month], keyed by day of month, each day in
+/// [taskOrder] (arcbyte decisions 0003, 0016).
+Map<int, List<Task>> dueByDay(Iterable<Task> tasks, DateTime month) {
+  final days = <int, List<Task>>{};
   for (final t in tasks) {
     final due = t.dueDate;
     if (!isOpen(t) || due == null) continue;
     if (due.year != month.year || due.month != month.month) continue;
-    counts.update(due.day, (n) => n + 1, ifAbsent: () => 1);
+    days.putIfAbsent(due.day, () => []).add(t);
   }
-  return counts;
+  for (final list in days.values) {
+    list.sort(taskOrder);
+  }
+  return days;
 }
+
+/// How many open tasks are due on each day of [month].
+Map<int, int> dueCounts(Iterable<Task> tasks, DateTime month) =>
+    dueByDay(tasks, month).map((day, list) => MapEntry(day, list.length));
+
+/// Dots under a calendar day: 1 for 1 open task, 2 for 2–3, 3 for 4 or more
+/// (arcbyte decision 0016), the old heatmap's steps.
+int dotCount(int count) => switch (count) {
+  <= 0 => 0,
+  1 => 1,
+  2 || 3 => 2,
+  _ => 3,
+};
 
 /// Thrown by [statusAfterTick] when a task needs a proof before review: ask
 /// the user for a link, then tick again with it.

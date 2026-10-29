@@ -71,6 +71,37 @@ void main() {
     expect(counts, {14: 2});
   });
 
+  test('due by day: open tasks in order, same days as the counts', () {
+    final tasks = [
+      task(TaskStatus.waiting, id: 3, due: DateTime(2026, 10, 14, 20)),
+      task(TaskStatus.inProgress, id: 2, due: DateTime(2026, 10, 14, 8)),
+      task(TaskStatus.done, id: 4, due: DateTime(2026, 10, 14)),
+      task(TaskStatus.waiting, id: 5, due: DateTime(2026, 10, 2)),
+      task(TaskStatus.waiting, id: 6, due: DateTime(2026, 9, 30)),
+    ];
+    final days = dueByDay(tasks, DateTime(2026, 10));
+    expect(days.map((d, l) => MapEntry(d, [for (final t in l) t.id])), {
+      14: [2, 3],
+      2: [5],
+    });
+    expect(dueCounts(tasks, DateTime(2026, 10)), {14: 2, 2: 1});
+  });
+
+  test('dots: 0, 1, 2 for 2-3, 3 for 4 or more (0016)', () {
+    expect(
+      [
+        for (final n in [0, 1, 2, 3, 4, 9]) dotCount(n),
+      ],
+      [0, 1, 2, 2, 3, 3],
+    );
+  });
+
+  test('monday of the week, across a month end', () {
+    expect(mondayOf(DateTime(2026, 10, 7, 23, 59)), DateTime(2026, 10, 5));
+    expect(mondayOf(DateTime(2026, 11, 1)), DateTime(2026, 10, 26));
+    expect(mondayOf(DateTime(2026, 10, 26)), DateTime(2026, 10, 26));
+  });
+
   group('status after a tick', () {
     test('team task without proof: done, and back to waiting', () {
       expect(statusAfterTick(task(TaskStatus.waiting)), TaskStatus.done);
