@@ -189,11 +189,11 @@ void main() {
     expect(find.text('WORKSPACES'), findsNothing);
     expect(find.text('MY WORK'), findsNothing);
     expect(find.byType(TaskRow), findsNothing);
-    // Oct 14 has 4 open tasks (QA checkout flow is in review): 2 and more.
+    // Oct 14 has 5 tasks, 4 open and one in review: 2 and "+3 more".
     expect(find.text('Design empty state'), findsOneWidget);
     expect(find.text('Fix navbar on mobile'), findsOneWidget);
     expect(find.text('Write release notes'), findsNothing);
-    expect(find.text('+2 more'), findsOneWidget);
+    expect(find.text('+3 more'), findsOneWidget);
 
     // A title opens its day (0016).
     await tester.tap(find.text('Design empty state'));
@@ -230,6 +230,46 @@ void main() {
     cubit.changeMonth(-5); // May 2026 starts on a Friday: 6 weeks
     await tester.pumpAndSettle();
     expect(tester.getSize(find.byType(PulsePanel)).height, october);
+  });
+
+  testWidgets('full screen: rings, titles coloured by kind, today blue (H12)', (
+    tester,
+  ) async {
+    await pump(tester);
+    // the month view: today is black
+    Color? disc(int d) => tester
+        .widgetList<Container>(
+          find.descendant(of: day(d), matching: find.byType(Container)),
+        )
+        .map((c) => (c.decoration as BoxDecoration?)?.color)
+        .whereType<Color>()
+        .first;
+    expect(disc(7), Colors.black);
+
+    await tester.tap(find.byTooltip('Expand calendar'));
+    await tester.pumpAndSettle();
+    expect(disc(7), const Color(0xFF2563EB)); // today, blue in full screen
+    expect(disc(8), AppColors.secondary); // every other day is a grey disc
+    expect(ringOf(tester, 14), isNotEmpty);
+    expect(ringOf(tester, 7), contains(DayMark.review));
+
+    // Oct 7 has an open task and one in review, each in its own colour
+    Color? pill(String title) =>
+        (tester
+                    .widgetList<Container>(
+                      find.ancestor(
+                        of: find.text(title),
+                        matching: find.byType(Container),
+                      ),
+                    )
+                    .firstWhere((c) => c.constraints?.maxHeight == 16)
+                    .decoration
+                as BoxDecoration)
+            .color;
+    expect(pill('Write onboarding copy'), AppColors.accent);
+    expect(pill('Review PR #42'), const Color(0xFFFEF3C7));
+    // the grabber and the rounded top are there
+    expect(find.byType(ClipRRect), findsWidgets);
   });
 
   testWidgets('a day tap collapses to its week; a swipe keeps the day', (
