@@ -53,16 +53,11 @@ void main() {
     expect(find.byTooltip('New task'), findsOneWidget);
   });
 
-  testWidgets('the Media and Discussion rails only show a message', (
-    tester,
-  ) async {
+  testWidgets('the Media rail only shows a message', (tester) async {
     await pump(tester);
     await tester.tap(find.byTooltip('Media'));
     await tester.pump();
     expect(find.text('Media is not available yet'), findsOneWidget);
-    await tester.tap(find.byTooltip('Discussion'));
-    await tester.pump();
-    expect(find.text('Discussion is not available yet'), findsOneWidget);
     await tester.pump(const Duration(seconds: 4));
   });
 

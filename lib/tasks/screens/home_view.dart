@@ -46,6 +46,7 @@ class HomeView extends StatelessWidget {
     required this.onLogOut,
     this.workspace = false,
     this.wrapCalendar,
+    this.onDiscussion,
   });
 
   /// Draws My Workspace, the dark screen, instead of home (hifi H13).
@@ -53,6 +54,9 @@ class HomeView extends StatelessWidget {
 
   /// Wraps the open month so a pull down on it can reach My Workspace.
   final Widget Function(Widget calendar)? wrapCalendar;
+
+  /// Opens the Discussion list from the rails.
+  final VoidCallback? onDiscussion;
 
   final HomeState state;
   final ValueChanged<TaskTab> onSelectTab;
@@ -160,16 +164,6 @@ class HomeView extends StatelessWidget {
         backgroundColor: Colors.black,
         body: Column(
           children: [
-            _TopBar(
-              title: 'MY WORKSPACE',
-              user: state.user!,
-              unread: state.unread > 0,
-              onNotifications: onNotifications,
-              onMyActivity: onMyActivity,
-              onAccountSettings: onAccountSettings,
-              onLogOut: onLogOut,
-            ),
-            StatsStrip(state.workload),
             Expanded(
               child: TabPages(
                 tabs: tabs,
@@ -244,16 +238,6 @@ class HomeView extends StatelessWidget {
           onFold: onFoldToWeek,
           builder: (context, fold, handle) => Column(
             children: [
-              _TopBar(
-                title: 'HOME',
-                user: state.user!,
-                unread: state.unread > 0,
-                onNotifications: onNotifications,
-                onMyActivity: onMyActivity,
-                onAccountSettings: onAccountSettings,
-                onLogOut: onLogOut,
-              ),
-              if (!state.calendarExpanded) StatsStrip(state.workload),
               Flexible(
                 flex: state.calendarExpanded ? 1 : 0,
                 fit: state.calendarExpanded ? FlexFit.tight : FlexFit.loose,
@@ -317,7 +301,72 @@ class HomeView extends StatelessWidget {
       extendBody: true,
       bottomNavigationBar: state.searching || state.calendarExpanded
           ? null
-          : Rails(onNewTask: onCreate, onNewProject: onNewProject),
+          : Rails(
+              onNewTask: onCreate,
+              onNewProject: onNewProject,
+              discussionBadge: state.chatsUnread,
+              onDiscussion: onDiscussion,
+            ),
+    );
+  }
+}
+
+/// The top bar and the workload strip, drawn once above both screens: they
+/// belong to My Workspace and stay put while home's white section slides
+/// away, and only the title changes. [t] is the pull: 0 is home, 1 is My
+/// Workspace (hifi H13).
+class HomeHeader extends StatelessWidget {
+  const HomeHeader({
+    super.key,
+    required this.state,
+    required this.t,
+    required this.onNotifications,
+    this.onMyActivity,
+    required this.onAccountSettings,
+    required this.onLogOut,
+  });
+
+  final HomeState state;
+  final double t;
+  final VoidCallback onNotifications;
+  final VoidCallback? onMyActivity;
+  final VoidCallback onAccountSettings;
+  final VoidCallback onLogOut;
+
+  static const _style = TextStyle(
+    fontSize: 15,
+    fontWeight: FontWeight.w500,
+    letterSpacing: -1,
+    color: Colors.white,
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    // Nothing to show until the user has loaded; the body shows the spinner.
+    if (state.loading) return const SizedBox.shrink();
+    Widget label(String text, double opacity) => Opacity(
+      opacity: opacity,
+      child: Text(text, style: _style),
+    );
+    final title = t <= 0
+        ? label('HOME', 1)
+        : t >= 1
+        ? label('MY WORKSPACE', 1)
+        : Stack(children: [label('HOME', 1 - t), label('MY WORKSPACE', t)]);
+    return Column(
+      children: [
+        _TopBar(
+          title: title,
+          user: state.user!,
+          unread: state.unread > 0,
+          onNotifications: onNotifications,
+          onMyActivity: onMyActivity,
+          onAccountSettings: onAccountSettings,
+          onLogOut: onLogOut,
+        ),
+        // The full-screen calendar hides it, until a pull starts.
+        if (!state.calendarExpanded || t > 0) StatsStrip(state.workload),
+      ],
     );
   }
 }
@@ -335,7 +384,7 @@ class _TopBar extends StatelessWidget {
     required this.onLogOut,
   });
 
-  final String title;
+  final Widget title;
   final User user;
   final bool unread;
   final VoidCallback onNotifications;
@@ -381,17 +430,7 @@ class _TopBar extends StatelessWidget {
         height: 61,
         child: Row(
           children: [
-            Expanded(
-              child: Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: -1,
-                  color: Colors.white,
-                ),
-              ),
-            ),
+            Expanded(child: title),
             Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(

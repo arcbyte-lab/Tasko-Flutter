@@ -24,6 +24,7 @@ class HomeState {
     this.monthOpen = true,
     this.workspaceOpen = false,
     this.homeTab,
+    this.chatsUnread = 0,
   });
 
   /// Midnight of the current day; the cubit reads the clock once per load.
@@ -109,6 +110,9 @@ class HomeState {
 
   /// Unread notifications, for the bell's dot.
   final int unread;
+
+  /// Chats with something unread, for the Discussion rail's badge.
+  final int chatsUnread;
 
   /// Group, sort and filter from the view-options sheet.
   final ViewOptions view;
@@ -199,6 +203,7 @@ class HomeState {
     bool? monthOpen,
     bool? workspaceOpen,
     TaskTab? homeTab,
+    int? chatsUnread,
   }) => HomeState(
     today: today,
     month: month ?? this.month,
@@ -217,6 +222,7 @@ class HomeState {
     monthOpen: monthOpen ?? this.monthOpen,
     workspaceOpen: workspaceOpen ?? this.workspaceOpen,
     homeTab: homeTab ?? this.homeTab,
+    chatsUnread: chatsUnread ?? this.chatsUnread,
   );
 }
 
@@ -249,6 +255,7 @@ class HomeCubit extends Cubit<HomeState> {
       tasksByTab: Map.fromIterables(tabs, tasks),
       membersByTab: Map.fromIterables(tabs, members),
       unread: await _unread(),
+      chatsUnread: await _chatsUnread(),
     );
     emit(
       loaded.copyWith(
@@ -334,7 +341,12 @@ class HomeCubit extends Cubit<HomeState> {
   /// sheet or screen closes.
   Future<void> reload() async {
     await _refresh(state.activeTab!);
-    emit(state.copyWith(unread: await _unread()));
+    emit(
+      state.copyWith(
+        unread: await _unread(),
+        chatsUnread: await _chatsUnread(),
+      ),
+    );
   }
 
   /// "my tasks" refreshes every tab it gathers from.
@@ -349,6 +361,9 @@ class HomeCubit extends Cubit<HomeState> {
       ),
     );
   }
+
+  // ponytail: fetches the whole list for one number; ask the API for a count if the list grows.
+  Future<int> _chatsUnread() async => (await _api.discussions()).unread;
 
   Future<int> _unread() async =>
       (await _api.notifications()).where((n) => n.unread).length;

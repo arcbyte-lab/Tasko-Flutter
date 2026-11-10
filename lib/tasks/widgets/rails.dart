@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/toast.dart';
 
+/// Which navigation is the screen you are on.
+enum RailsItem { home, discussion }
+
 /// The rails dock of hifi H13: a 100px bar with a 16px blur and a 50% white
 /// fill, holding navigations on the left and actions on the right. It
 /// replaces the FAB. Media and Discussion are out of this cycle, so
@@ -15,10 +18,24 @@ class Rails extends StatelessWidget {
     required this.onNewTask,
     this.onNewProject,
     this.navigations = true,
+    this.active = RailsItem.home,
+    this.discussionBadge = 0,
+    this.onHome,
+    this.onDiscussion,
   });
 
   /// My Workspace shows only the actions, over its grabber strip.
   final bool navigations;
+  final RailsItem active;
+
+  /// Chats with something unread; hidden at zero.
+  final int discussionBadge;
+
+  /// Null on home itself, which is the screen you are on.
+  final VoidCallback? onHome;
+
+  /// Null while the Discussion list is open.
+  final VoidCallback? onDiscussion;
 
   final VoidCallback onNewTask;
   final VoidCallback? onNewProject;
@@ -42,10 +59,11 @@ class Rails extends StatelessWidget {
                 Flexible(
                   flex: 3,
                   child: _Rail([
-                    const _Item(
+                    _Item(
                       Icons.home_outlined,
                       'Home',
-                      active: true,
+                      active: active == RailsItem.home,
+                      onTap: onHome,
                       width: 76,
                     ),
                     _Item(
@@ -57,7 +75,9 @@ class Rails extends StatelessWidget {
                     _Item(
                       Icons.chat_bubble_outline,
                       'Discussion',
-                      onTap: () => soon('Discussion'),
+                      active: active == RailsItem.discussion,
+                      onTap: onDiscussion,
+                      badge: discussionBadge,
                       width: 76,
                     ),
                   ]),
@@ -116,12 +136,16 @@ class _Item extends StatelessWidget {
     this.active = false,
     this.onTap,
     this.width = 70,
+    this.badge = 0,
   });
   final IconData icon;
   final String label;
   final bool active;
   final VoidCallback? onTap;
   final double width;
+
+  /// A 16px red count over the icon; hidden at zero.
+  final int badge;
 
   @override
   Widget build(BuildContext context) {
@@ -145,7 +169,14 @@ class _Item extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 20, color: color),
+              badge == 0
+                  ? Icon(icon, size: 20, color: color)
+                  : Badge(
+                      label: Text('$badge'),
+                      backgroundColor: AppColors.destructive,
+                      textStyle: const TextStyle(fontSize: 10),
+                      child: Icon(icon, size: 20, color: color),
+                    ),
               Text(
                 label.toUpperCase(),
                 style: TextStyle(fontSize: 8, color: color),

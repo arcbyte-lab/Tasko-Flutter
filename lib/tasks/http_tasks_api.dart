@@ -202,6 +202,30 @@ class HttpTasksApi implements TasksApi {
       });
 
   @override
+  Future<DiscussionList> discussions({String query = ''}) async {
+    final json = await _get(
+      '/discussions?q=${Uri.encodeQueryComponent(query)}',
+    );
+    return DiscussionList([
+      for (final d in json['discussions'])
+        Discussion(
+          taskId: d['taskId'] as int,
+          code: d['code'] as String?,
+          name: d['name'] as String,
+          tabName: d['tab']['name'] as String,
+          lastAuthor: _user(d['last']['author']),
+          lastBody: d['last']['body'] as String,
+          lastAt: _time(d['last']['createdAt'])!,
+          unread: d['unread'] as int,
+        ),
+    ], json['unread'] as int);
+  }
+
+  @override
+  Future<void> markDiscussionRead(Task task) =>
+      _send('POST', '/discussions/${task.id}/read', {});
+
+  @override
   Future<List<AppNotification>> notifications() async => [
     for (final n in await _get('/notifications'))
       AppNotification(

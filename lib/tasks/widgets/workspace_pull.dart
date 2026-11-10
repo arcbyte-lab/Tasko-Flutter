@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 class WorkspacePull extends StatefulWidget {
   const WorkspacePull({
     super.key,
+    required this.header,
     required this.open,
     required this.onChanged,
     required this.workspace,
@@ -16,11 +17,18 @@ class WorkspacePull extends StatefulWidget {
   /// Height of the strip left behind, with the grabber.
   static const peek = 56.0;
 
+  /// The top bar and the strip, drawn once and never moved; [t] is the pull,
+  /// 0 on home and 1 on My Workspace.
+  final Widget Function(double t) header;
+
   final bool open;
   final ValueChanged<bool> onChanged;
+
+  /// My Workspace below the header; it sits under home until a pull starts.
   final Widget workspace;
 
-  /// [pull] wraps the part of home that can be dragged down.
+  /// Home below the header: the calendar and what is under it slide down and
+  /// uncover [workspace]. [pull] wraps the part that can be dragged.
   final Widget Function(Widget Function(Widget child) pull) home;
 
   @override
@@ -100,62 +108,74 @@ class _WorkspacePullState extends State<WorkspacePull>
   }
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, box) {
-      _height = box.maxHeight;
-      return AnimatedBuilder(
-        animation: _t,
-        builder: (context, _) {
-          final t = _t.value;
-          return Stack(
-            children: [
-              // Built only once a pull starts, so home alone is what shows.
-              if (t > 0) Positioned.fill(child: widget.workspace),
-              // The strip rises as home leaves.
-              if (t > 0)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  height: WorkspacePull.peek,
-                  child: Transform.translate(
-                    offset: Offset(0, (1 - t) * WorkspacePull.peek),
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => widget.onChanged(false),
-                      onVerticalDragUpdate: _drag,
-                      onVerticalDragEnd: _end,
-                      child: Semantics(
-                        label: 'swipe up to back to home',
-                        button: true,
-                        child: ColoredBox(
-                          color: Colors.white,
-                          child: Align(
-                            alignment: const Alignment(0, -0.4),
-                            child: Container(
-                              width: 48,
-                              height: 4,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFD1D5DB),
-                                borderRadius: BorderRadius.circular(2),
-                              ),
-                            ),
-                          ),
-                        ),
+  Widget build(BuildContext context) => Material(
+    color: Colors.black,
+    child: Column(
+      children: [
+        AnimatedBuilder(
+          animation: _t,
+          builder: (context, _) => widget.header(_t.value),
+        ),
+        Expanded(
+          child: LayoutBuilder(
+            builder: (context, box) {
+              _height = box.maxHeight;
+              return AnimatedBuilder(
+                animation: _t,
+                builder: (context, _) => _body(_t.value),
+              );
+            },
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _body(double t) => Stack(
+    children: [
+      // Built only once a pull starts, so home alone is what shows.
+      if (t > 0) Positioned.fill(child: widget.workspace),
+      // The strip rises as home leaves.
+      if (t > 0)
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: WorkspacePull.peek,
+          child: Transform.translate(
+            offset: Offset(0, (1 - t) * WorkspacePull.peek),
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => widget.onChanged(false),
+              onVerticalDragUpdate: _drag,
+              onVerticalDragEnd: _end,
+              child: Semantics(
+                label: 'swipe up to back to home',
+                button: true,
+                child: ColoredBox(
+                  color: Colors.white,
+                  child: Align(
+                    alignment: const Alignment(0, -0.4),
+                    child: Container(
+                      width: 48,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFD1D5DB),
+                        borderRadius: BorderRadius.circular(2),
                       ),
                     ),
                   ),
                 ),
-              Positioned.fill(
-                child: Transform.translate(
-                  offset: Offset(0, t * _height),
-                  child: Offstage(offstage: t >= 1, child: widget.home(_pull)),
-                ),
               ),
-            ],
-          );
-        },
-      );
-    },
+            ),
+          ),
+        ),
+      Positioned.fill(
+        child: Transform.translate(
+          offset: Offset(0, t * _height),
+          child: Offstage(offstage: t >= 1, child: widget.home(_pull)),
+        ),
+      ),
+    ],
   );
 }

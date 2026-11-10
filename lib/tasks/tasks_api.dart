@@ -53,6 +53,13 @@ abstract interface class TasksApi {
   /// The creator archives the task; it leaves every tab (arcbyte decision 0019).
   Future<void> archiveTask(Task task);
 
+  /// The Discussion list: tasks with comments, newest first; [query] is a
+  /// task name or code.
+  Future<DiscussionList> discussions({String query = ''});
+
+  /// Opening a conversation reads it.
+  Future<void> markDiscussionRead(Task task);
+
   /// The viewer's notifications, newest first.
   Future<List<AppNotification>> notifications();
 
@@ -144,6 +151,7 @@ class FakeTasksApi implements TasksApi {
   final reviews = <(int taskId, bool approve, String? reason)>[];
   final extensionRequests = <(int taskId, DateTime newDue, String reason)>[];
   final archived = <int>[];
+  final _discussionRead = <int, DateTime>{};
 
   static const tech = TaskTab(TabKind.division, 1, 'tech');
   static const taskoApp = TaskTab(TabKind.project, 1, 'tasko-app');
@@ -456,6 +464,49 @@ class FakeTasksApi implements TasksApi {
     DateTime newDue,
     String reason,
   ) async => extensionRequests.add((task.id, newDue, reason));
+
+  @override
+  Future<DiscussionList> discussions({String query = ''}) async {
+    final q = query.trim().toLowerCase();
+    final all = <Task>[for (final list in _tasks.values) ...list];
+    final rows = <Discussion>[];
+    for (final task in all) {
+      final thread = _comments[task.id];
+      if (thread == null || thread.isEmpty || task.personal) continue;
+      if (_memberIn(_tabOf(task), _me.id) == null) continue;
+      if (q.isNotEmpty &&
+          !task.name.toLowerCase().contains(q) &&
+          !(task.code ?? '').toLowerCase().contains(q)) {
+        continue;
+      }
+      final read = _discussionRead[task.id];
+      final last = thread.last;
+      rows.add(
+        Discussion(
+          taskId: task.id,
+          code: task.code,
+          name: task.name,
+          tabName: _tabOf(task).name,
+          lastAuthor: last.author,
+          lastBody: last.body,
+          lastAt: last.createdAt,
+          unread: thread
+              .where(
+                (c) =>
+                    c.author.id != _me.id &&
+                    (read == null || c.createdAt.isAfter(read)),
+              )
+              .length,
+        ),
+      );
+    }
+    rows.sort((a, b) => b.lastAt.compareTo(a.lastAt));
+    return DiscussionList(rows, rows.where((d) => d.unread > 0).length);
+  }
+
+  @override
+  Future<void> markDiscussionRead(Task task) async =>
+      _discussionRead[task.id] = DateTime.now();
 
   @override
   Future<void> archiveTask(Task task) async {
