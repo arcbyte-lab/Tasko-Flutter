@@ -283,7 +283,7 @@ void main() {
 
     await step('create a personal task', () async {
       await openTab('private');
-      await tester.tap(find.byTooltip('Create task'));
+      await tester.tap(find.byTooltip('New task'));
       await settle();
       await tester.enterText(find.byType(TextField).first, 'Device test task');
       await tester.pump();

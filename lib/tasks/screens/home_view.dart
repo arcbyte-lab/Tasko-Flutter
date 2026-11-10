@@ -5,6 +5,7 @@ import '../home_cubit.dart';
 import '../models.dart';
 import '../task_rules.dart';
 import '../widgets/pulse_panel.dart';
+import '../widgets/rails.dart';
 import '../widgets/tab_pages.dart';
 import '../widgets/tab_strip.dart';
 import '../widgets/task_row.dart';
@@ -210,7 +211,6 @@ class HomeView extends StatelessWidget {
                             active: state.activeTab,
                             position: position,
                             onSelect: onSelectTab,
-                            onNewProject: onNewProject,
                           ),
                         ),
                         toolbar,
@@ -224,17 +224,10 @@ class HomeView extends StatelessWidget {
         ),
       ),
       // Hidden while searching, as in the mockup.
-      floatingActionButton: state.searching
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButton: state.searching || state.calendarExpanded
           ? null
-          : FloatingActionButton(
-              onPressed: onCreate,
-              tooltip: 'Create task',
-              shape: const CircleBorder(),
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              elevation: 1,
-              child: const Icon(Icons.add),
-            ),
+          : Rails(onNewTask: onCreate, onNewProject: onNewProject),
     );
   }
 }

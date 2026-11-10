@@ -45,12 +45,25 @@ void main() {
     expect(find.text('Deploy staging'), findsOneWidget);
     expect(find.text('Fix login redirect'), findsNothing);
     expect(find.text('TOMORROW'), findsNothing);
-    expect(find.byTooltip('Create task'), findsNothing);
+    expect(find.byTooltip('New task'), findsNothing);
 
     await tester.tap(find.byTooltip('Close search'));
     await tester.pumpAndSettle();
     expect(find.text('Fix login redirect'), findsOneWidget);
-    expect(find.byTooltip('Create task'), findsOneWidget);
+    expect(find.byTooltip('New task'), findsOneWidget);
+  });
+
+  testWidgets('the Media and Discussion rails only show a message', (
+    tester,
+  ) async {
+    await pump(tester);
+    await tester.tap(find.byTooltip('Media'));
+    await tester.pump();
+    expect(find.text('Media is not available yet'), findsOneWidget);
+    await tester.tap(find.byTooltip('Discussion'));
+    await tester.pump();
+    expect(find.text('Discussion is not available yet'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 4));
   });
 
   testWidgets('group by priority, filter by status, then reset', (

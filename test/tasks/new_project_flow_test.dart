@@ -46,7 +46,7 @@ void main() {
     tester,
   ) async {
     final cubit = await pump(tester, FakeTasksApi(today: now));
-    // At the end of the tab strip, not in the account menu (decision 0011).
+    // On the rails, not in the tab strip or the account menu.
     await tester.ensureVisible(find.byTooltip('New project'));
     await tester.tap(find.byTooltip('New project'));
     await tester.pumpAndSettle();
