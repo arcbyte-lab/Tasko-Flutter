@@ -152,6 +152,7 @@ class HomeView extends StatelessWidget {
     return Scaffold(
       body: SafeArea(
         top: false,
+        bottom: false,
         // A vertical drag on the tab bar or the calendar's handle folds the
         // calendar between month and week strip (arcbyte decision 0016).
         child: CalendarFold(
@@ -226,8 +227,8 @@ class HomeView extends StatelessWidget {
         ),
       ),
       // Hidden while searching, as in the mockup.
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: state.searching || state.calendarExpanded
+      extendBody: true,
+      bottomNavigationBar: state.searching || state.calendarExpanded
           ? null
           : Rails(onNewTask: onCreate, onNewProject: onNewProject),
     );

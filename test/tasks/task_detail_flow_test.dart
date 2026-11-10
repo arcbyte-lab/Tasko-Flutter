@@ -51,6 +51,12 @@ void main() {
         matching: find.byType(Scrollable),
       ),
     );
+    // Bring the row up, clear of the rails dock.
+    await Scrollable.ensureVisible(
+      tester.element(find.text(task)),
+      alignment: 0.3,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.text(task));
     await tester.pumpAndSettle();
   }
