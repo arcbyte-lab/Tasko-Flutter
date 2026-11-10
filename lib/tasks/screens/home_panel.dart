@@ -185,6 +185,25 @@ class HomePanel extends StatelessWidget {
           },
         );
         return WorkspacePull(
+          header: (t) => HomeHeader(
+            state: state,
+            t: t,
+            onNotifications: () async {
+              await openNotifications(context);
+              // Someone may have added the viewer to a project (decision 0010).
+              await cubit.reloadTabs();
+              await cubit.reload();
+            },
+            onMyActivity: () => openActivity(
+              context,
+              api: context.read<TasksApi>(),
+              scope: UserLog(state.user!),
+              today: state.today,
+            ),
+            onAccountSettings: () =>
+                showToast(context, 'action: account settings'),
+            onLogOut: onLogOut,
+          ),
           open: state.workspaceOpen,
           onChanged: (open) =>
               open ? cubit.openWorkspace() : cubit.closeWorkspace(),
