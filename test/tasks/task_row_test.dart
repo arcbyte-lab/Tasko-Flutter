@@ -95,7 +95,7 @@ void main() {
   );
 
   testWidgets(
-    'the scope follows the code with no spaces; no date, no code, no problem',
+    'the scope follows the code after a dot; no date, no code, no problem',
     (tester) async {
       await pump(
         tester,
@@ -114,7 +114,7 @@ void main() {
         tester,
         TaskRow(task: task(), now: now, onTap: () {}, tabName: 'tech'),
       );
-      expect(find.text('TW-0042·tech'), findsOneWidget);
+      expect(find.text('TW-0042 · tech'), findsOneWidget);
       await pump(tester, TaskRow(task: task(), now: now, onTap: () {}));
       expect(find.textContaining('Oct'), findsNothing);
     },

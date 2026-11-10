@@ -155,7 +155,7 @@ void main() {
         matching: find.byType(Scrollable),
       ),
     );
-    expect(find.textContaining('·tasko-web'), findsWidgets);
+    expect(find.textContaining(' · tasko-web'), findsWidgets);
   });
 
   testWidgets('back to private drops the assignee chip', (tester) async {

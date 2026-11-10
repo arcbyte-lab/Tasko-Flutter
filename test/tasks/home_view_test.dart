@@ -106,9 +106,9 @@ void main() {
     tester,
   ) async {
     await pump(tester, tab: 'my tasks');
-    // after the code, with no spaces: TW-0042·tasko-web; a personal task has
+    // after the code: TW-0042 · tasko-web; a personal task has
     // no code, so its row says just private
-    expect(find.textContaining('·tasko-web'), findsWidgets);
+    expect(find.textContaining(' · tasko-web'), findsWidgets);
     expect(find.text('private'), findsWidgets);
     for (final tip in ['Members', 'Repeating', 'Activity']) {
       expect(find.byTooltip(tip), findsNothing);

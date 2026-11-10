@@ -9,7 +9,7 @@ import 'task_badges.dart';
 /// The task row of hifi H1 (the pen file's `hifi / Task Row`, 62 tall): the
 /// assignee's avatar, then two lines. Line 1: the title and the due date
 /// ("Overdue Oct 3" in red). Line 2: the task code and where the task lives
-/// ("TECH-0141·tech"), the priority badge, and the status badge on the right.
+/// ("TECH-0141 · tech"), the priority badge, and the status badge on the right.
 /// There is no checkbox: a task is moved on in Task Detail.
 class TaskRow extends StatelessWidget {
   const TaskRow({
@@ -56,9 +56,9 @@ class TaskRow extends StatelessWidget {
     final dateText = due == null
         ? ''
         : '${overdue ? 'Overdue ' : ''}${shortDate(due, now)}';
-    // "TECH-0141·tech": the code, then where the task lives (a division or a
-    // project), with no spaces round the dot.
-    final idText = [?task.code, ?tabName].join('·');
+    // "TECH-0141 · tech": the code, then where the task lives (a division or a
+    // project), with a space each side of the dot.
+    final idText = [?task.code, ?tabName].join(' · ');
     final small = TextStyle(fontSize: 12, height: 15 / 12, color: p.muted);
 
     return InkWell(
