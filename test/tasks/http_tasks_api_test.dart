@@ -43,6 +43,49 @@ void main() {
     unauthorized = 0;
   });
 
+  test(
+    'reads the discussion list with its unread count and marks one read',
+    () async {
+      reply = (req) => req.method == 'GET'
+          ? http.Response(
+              jsonEncode({
+                'unread': 1,
+                'discussions': [
+                  {
+                    'taskId': 5,
+                    'code': 'TW-0041',
+                    'name': 'Fix login redirect',
+                    'tab': {'kind': 'project', 'id': 2, 'name': 'tasko-web'},
+                    'last': {
+                      'author': {'id': 3, 'name': 'Budi'},
+                      'body': '',
+                      'createdAt': '2026-10-07T09:15:00Z',
+                    },
+                    'unread': 2,
+                  },
+                ],
+              }),
+              200,
+            )
+          : http.Response('', 204);
+      final list = await api().discussions(query: 'log in');
+      expect(
+        sent.single.url.toString(),
+        'https://api.test/discussions?q=log+in',
+      );
+      expect(list.unread, 1);
+      expect(list.discussions.single.code, 'TW-0041');
+      expect(list.discussions.single.lastAuthor.name, 'Budi');
+      expect(list.discussions.single.unread, 2);
+
+      await api().markDiscussionRead(
+        const Task(id: 5, name: 'x', status: TaskStatus.waiting),
+      );
+      expect(sent.last.method, 'POST');
+      expect(sent.last.url.path, '/discussions/5/read');
+    },
+  );
+
   test('reads a task and sends a proof link with the tick', () async {
     reply = (_) =>
         http.Response(jsonEncode({..._row, 'status': 'review'}), 200);

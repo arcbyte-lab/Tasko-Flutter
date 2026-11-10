@@ -46,6 +46,7 @@ class HomeView extends StatelessWidget {
     required this.onLogOut,
     this.workspace = false,
     this.wrapCalendar,
+    this.onDiscussion,
   });
 
   /// Draws My Workspace, the dark screen, instead of home (hifi H13).
@@ -53,6 +54,9 @@ class HomeView extends StatelessWidget {
 
   /// Wraps the open month so a pull down on it can reach My Workspace.
   final Widget Function(Widget calendar)? wrapCalendar;
+
+  /// Opens the Discussion list from the rails.
+  final VoidCallback? onDiscussion;
 
   final HomeState state;
   final ValueChanged<TaskTab> onSelectTab;
@@ -317,7 +321,12 @@ class HomeView extends StatelessWidget {
       extendBody: true,
       bottomNavigationBar: state.searching || state.calendarExpanded
           ? null
-          : Rails(onNewTask: onCreate, onNewProject: onNewProject),
+          : Rails(
+              onNewTask: onCreate,
+              onNewProject: onNewProject,
+              discussionBadge: state.chatsUnread,
+              onDiscussion: onDiscussion,
+            ),
     );
   }
 }

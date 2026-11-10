@@ -245,6 +245,42 @@ class Comment {
   final DateTime createdAt;
 }
 
+/// One row of the Discussion list: a task's comment thread (hifi H13).
+class Discussion {
+  const Discussion({
+    required this.taskId,
+    required this.code,
+    required this.name,
+    required this.tabName,
+    required this.lastAuthor,
+    required this.lastBody,
+    required this.lastAt,
+    required this.unread,
+  });
+
+  final int taskId;
+  final String? code;
+  final String name;
+  final String tabName;
+  final User lastAuthor;
+
+  /// Empty when the last message had no text (an attachment).
+  final String lastBody;
+  final DateTime lastAt;
+
+  /// Comments by others since the viewer last opened it.
+  final int unread;
+}
+
+/// The Discussion list and the number of chats with something unread, which
+/// the rails badge shows.
+class DiscussionList {
+  const DiscussionList(this.discussions, this.unread);
+
+  final List<Discussion> discussions;
+  final int unread;
+}
+
 /// A `proofs` row: a link sent with the tick to review (arcbyte decision
 /// 0007).
 class Proof {
