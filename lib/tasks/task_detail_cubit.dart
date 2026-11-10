@@ -5,9 +5,23 @@ import 'task_rules.dart';
 import 'tasks_api.dart';
 
 class TaskDetailState {
-  const TaskDetailState({required this.task, this.detail, this.me});
+  const TaskDetailState({
+    required this.task,
+    this.detail,
+    this.me,
+    this.draft,
+    this.draftAssignee,
+  });
 
   final Task task;
+
+  /// Edit mode: the task with the changes so far; null when not editing.
+  /// Nothing reaches the server until [TaskDetailCubit.save].
+  final Task? draft;
+
+  /// The user [draft]'s assignee, for the name on the row.
+  final User? draftAssignee;
+  bool get editing => draft != null;
 
   /// Null until loaded.
   final TaskDetail? detail;
@@ -19,15 +33,23 @@ class TaskDetailState {
       ? DetailAction.none
       : actionFor(task, viewerId: me!.id, canReview: detail!.canReview);
 
-  TaskDetailState copyWith({Task? task, TaskDetail? detail, User? me}) =>
-      TaskDetailState(
-        task: task ?? this.task,
-        detail: detail ?? this.detail,
-        me: me ?? this.me,
-      );
+  TaskDetailState copyWith({
+    Task? task,
+    TaskDetail? detail,
+    User? me,
+    Task? Function()? draft,
+    User? Function()? draftAssignee,
+  }) => TaskDetailState(
+    task: task ?? this.task,
+    detail: detail ?? this.detail,
+    me: me ?? this.me,
+    draft: draft != null ? draft() : this.draft,
+    draftAssignee: draftAssignee != null ? draftAssignee() : this.draftAssignee,
+  );
 }
 
-/// One task's detail. Every edit saves at once.
+/// One task's detail. Title, note, priority, due date and assignee change in
+/// edit mode and save together (arcbyte decision 0018).
 class TaskDetailCubit extends Cubit<TaskDetailState> {
   TaskDetailCubit(this._api, Task task) : super(TaskDetailState(task: task));
 
@@ -50,42 +72,46 @@ class TaskDetailCubit extends Cubit<TaskDetailState> {
     await load(); // the assignee shown may have changed
   }
 
-  String? _draftName;
-  String? _draftNote;
+  void startEdit() => emit(
+    state.copyWith(
+      draft: () => state.task,
+      draftAssignee: () => state.detail?.assignee,
+    ),
+  );
 
-  /// Typing in the title or note keeps a draft; [flush] saves it.
-  void editName(String v) => _draftName = v;
-  void editNote(String v) => _draftNote = v;
+  void cancelEdit() =>
+      emit(state.copyWith(draft: () => null, draftAssignee: () => null));
 
-  /// Saves pending title and note drafts. Runs on blur and once more after
-  /// the sheet closes, before the list reloads.
-  Future<void> flush() async {
-    final (name, note) = (_draftName, _draftNote);
-    _draftName = _draftNote = null;
-    if (name != null) await rename(name);
-    if (note != null) await setNote(note);
+  void _draft(Task Function(Task) change) {
+    final d = state.draft;
+    if (d != null) emit(state.copyWith(draft: () => change(d)));
   }
 
-  /// Blank names are ignored; the old name stays.
-  Future<void> rename(String name) async {
-    final v = name.trim();
-    if (v.isEmpty || v == state.task.name) return;
-    await _save(state.task.copyWith(name: v));
+  void editName(String v) => _draft((d) => d.copyWith(name: v));
+  void editNote(String v) => _draft((d) => d.copyWith(description: () => v));
+  void setPriority(Priority p) => _draft((d) => d.copyWith(priority: p));
+  void setDueDate(DateTime v) => _draft((d) => d.copyWith(dueDate: v));
+
+  void setAssignee(Member m) {
+    _draft((d) => d.copyWith(assigneeId: () => m.user.id));
+    emit(state.copyWith(draftAssignee: () => m.user));
   }
 
-  Future<void> setNote(String note) async {
-    final v = note.trim();
-    if (v == (state.task.description ?? '')) return;
-    await _save(state.task.copyWith(description: () => v.isEmpty ? null : v));
+  /// Sends the draft in one update, trimmed. A blank title keeps the old one;
+  /// a blank note is saved as none. Leaves edit mode.
+  Future<void> save() async {
+    final d = state.draft;
+    if (d == null) return;
+    final name = d.name.trim();
+    final note = (d.description ?? '').trim();
+    final t = d.copyWith(
+      name: name.isEmpty ? state.task.name : name,
+      description: () => note.isEmpty ? null : note,
+    );
+    emit(state.copyWith(draft: () => null, draftAssignee: () => null, task: t));
+    await _api.updateTask(t);
+    await load(); // the assignee shown may have changed
   }
-
-  Future<void> setPriority(Priority p) =>
-      _save(state.task.copyWith(priority: p));
-
-  Future<void> setDueDate(DateTime d) => _save(state.task.copyWith(dueDate: d));
-
-  Future<void> setAssignee(Member m) =>
-      _save(state.task.copyWith(assigneeId: () => m.user.id));
 
   /// Null stops it repeating.
   Future<void> setRepeat(Repeat? r) =>

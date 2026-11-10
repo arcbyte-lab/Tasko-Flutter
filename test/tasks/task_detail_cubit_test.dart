@@ -40,28 +40,53 @@ void main() {
     expect(names, isNot(contains('Store return URL')));
   });
 
-  test('rename trims; a blank name is ignored', () async {
+  test('save trims; a blank name keeps the old one', () async {
     final c = await open(FakeTasksApi.taskoWeb, 'Deploy staging');
-    await c.rename('   ');
+    c.startEdit();
+    c.editName('   ');
+    await c.save();
     expect(c.state.task.name, 'Deploy staging');
-    await c.rename('  Deploy staging v2 ');
+    c.startEdit();
+    c.editName('  Deploy staging v2 ');
+    await c.save();
     expect(
       (await stored(FakeTasksApi.taskoWeb, 'Deploy staging v2')).id,
       c.state.task.id,
     );
   });
 
+  test('nothing is sent until save; cancel drops the changes', () async {
+    final c = await open(FakeTasksApi.taskoWeb, 'Deploy staging');
+    c.startEdit();
+    c.editName('Never saved');
+    c.setPriority(Priority.urgent);
+    expect(c.state.editing, isTrue);
+    expect(c.state.task.name, 'Deploy staging');
+    c.cancelEdit();
+    expect(c.state.editing, isFalse);
+    expect(c.state.task.name, 'Deploy staging');
+    expect(c.state.task.priority, isNot(Priority.urgent));
+    await stored(FakeTasksApi.taskoWeb, 'Deploy staging');
+  });
+
   test('a blank note is saved as null', () async {
     final c = await open(FakeTasksApi.taskoWeb, 'Fix login redirect');
-    await c.setNote('  ');
+    c.startEdit();
+    c.editNote('  ');
+    await c.save();
     expect(c.state.task.description, isNull);
   });
 
-  test('changing the assignee shows the new one', () async {
+  test('one save sends every change, and the new assignee shows', () async {
     final c = await open(FakeTasksApi.taskoWeb, 'Deploy staging');
     final ana = (await api.membersOf(FakeTasksApi.taskoWeb))[1];
-    await c.setAssignee(ana);
+    c.startEdit();
+    c.setAssignee(ana);
+    c.setPriority(Priority.urgent);
+    expect(c.state.draftAssignee?.name, 'Ana');
+    await c.save();
     expect(c.state.detail!.assignee?.name, 'Ana');
+    expect(c.state.task.priority, Priority.urgent);
     expect(c.state.action, DetailAction.none); // no longer mine
   });
 
@@ -130,7 +155,9 @@ void main() {
 
   test('no emit after close', () async {
     final c = await open(FakeTasksApi.taskoWeb, 'Deploy staging');
-    final pending = c.rename('Late rename');
+    c.startEdit();
+    c.editName('Late rename');
+    final pending = c.save();
     await c.close();
     await pending; // would throw StateError without the guard
   });
