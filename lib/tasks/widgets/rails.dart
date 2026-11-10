@@ -20,22 +20,29 @@ class Rails extends StatelessWidget {
     return SizedBox(
       width: MediaQuery.sizeOf(context).width,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
+        padding: const EdgeInsets.symmetric(horizontal: 10),
         child: Row(
           children: [
             Flexible(
               flex: 3,
               child: _Rail([
-                const _Item(Icons.home_outlined, 'Home', active: true),
+                const _Item(
+                  Icons.home_outlined,
+                  'Home',
+                  active: true,
+                  width: 76,
+                ),
                 _Item(
                   Icons.view_in_ar_outlined,
                   'Media',
                   onTap: () => soon('Media'),
+                  width: 76,
                 ),
                 _Item(
                   Icons.chat_bubble_outline,
                   'Discussion',
                   onTap: () => soon('Discussion'),
+                  width: 76,
                 ),
               ]),
             ),
@@ -86,11 +93,18 @@ class _Rail extends StatelessWidget {
 }
 
 class _Item extends StatelessWidget {
-  const _Item(this.icon, this.label, {this.active = false, this.onTap});
+  const _Item(
+    this.icon,
+    this.label, {
+    this.active = false,
+    this.onTap,
+    this.width = 70,
+  });
   final IconData icon;
   final String label;
   final bool active;
   final VoidCallback? onTap;
+  final double width;
 
   @override
   Widget build(BuildContext context) {
@@ -101,8 +115,8 @@ class _Item extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(22),
         child: Container(
-          constraints: const BoxConstraints(
-            maxWidth: 70,
+          constraints: BoxConstraints(
+            maxWidth: width,
             minHeight: 44,
             maxHeight: 44,
           ),
