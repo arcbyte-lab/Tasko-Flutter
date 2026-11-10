@@ -137,7 +137,8 @@ class HomeView extends StatelessWidget {
           ),
           if (page.showCompleted) ...completed.map(row),
         ],
-        const SizedBox(height: 100), // room to scroll past the rails
+        // room to scroll past the rails (and My Workspace's grabber strip)
+        SizedBox(height: workspace ? 100 + WorkspacePull.peek : 100),
       ],
     );
   }
@@ -189,9 +190,20 @@ class HomeView extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: WorkspacePull.peek),
           ],
         ),
+        // Only the actions, resting on the grabber strip.
+        extendBody: true,
+        bottomNavigationBar: state.searching
+            ? null
+            : Padding(
+                padding: const EdgeInsets.only(bottom: WorkspacePull.peek),
+                child: Rails(
+                  navigations: false,
+                  onNewTask: onCreate,
+                  onNewProject: onNewProject,
+                ),
+              ),
       ),
     );
   }

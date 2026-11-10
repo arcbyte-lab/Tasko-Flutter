@@ -120,10 +120,10 @@ void main() {
   });
 
   testWidgets('home has no my tasks tab; a pull down on the calendar opens '
-      'My Workspace, dark, with no rails', (tester) async {
+      'My Workspace, dark, with only the actions rail', (tester) async {
     await pump(tester);
     expect(find.text('my tasks'), findsNothing);
-    expect(find.byTooltip('New task'), findsOneWidget);
+    expect(find.byTooltip('Media'), findsOneWidget);
     expect(find.byTooltip('New task'), findsOneWidget);
 
     await tester.drag(find.byType(PulsePanel), const Offset(0, 500));
@@ -132,7 +132,8 @@ void main() {
     expect(find.text('MY WORKSPACE'), findsOneWidget);
     expect(find.text('my tasks'), findsOneWidget);
     expect(find.text('private'), findsOneWidget);
-    expect(find.byTooltip('New task'), findsNothing);
+    expect(find.byTooltip('New task'), findsOneWidget);
+    expect(find.byTooltip('Media'), findsNothing); // navigations stay home
     expect(find.text('HOME'), findsNothing);
     expect(find.text('Pay internet bill'), findsOneWidget); // mine, any tab
 

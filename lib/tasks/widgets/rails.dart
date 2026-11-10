@@ -10,7 +10,15 @@ import '../../core/toast.dart';
 /// replaces the FAB. Media and Discussion are out of this cycle, so
 /// they only toast; tapping Home does nothing, it is the screen you are on.
 class Rails extends StatelessWidget {
-  const Rails({super.key, required this.onNewTask, this.onNewProject});
+  const Rails({
+    super.key,
+    required this.onNewTask,
+    this.onNewProject,
+    this.navigations = true,
+  });
+
+  /// My Workspace shows only the actions, over its grabber strip.
+  final bool navigations;
 
   final VoidCallback onNewTask;
   final VoidCallback? onNewProject;
@@ -28,29 +36,32 @@ class Rails extends StatelessWidget {
           alignment: Alignment.topCenter,
           child: Row(
             children: [
-              Flexible(
-                flex: 3,
-                child: _Rail([
-                  const _Item(
-                    Icons.home_outlined,
-                    'Home',
-                    active: true,
-                    width: 76,
-                  ),
-                  _Item(
-                    Icons.view_in_ar_outlined,
-                    'Media',
-                    onTap: () => soon('Media'),
-                    width: 76,
-                  ),
-                  _Item(
-                    Icons.chat_bubble_outline,
-                    'Discussion',
-                    onTap: () => soon('Discussion'),
-                    width: 76,
-                  ),
-                ]),
-              ),
+              if (!navigations)
+                const Spacer(flex: 3)
+              else
+                Flexible(
+                  flex: 3,
+                  child: _Rail([
+                    const _Item(
+                      Icons.home_outlined,
+                      'Home',
+                      active: true,
+                      width: 76,
+                    ),
+                    _Item(
+                      Icons.view_in_ar_outlined,
+                      'Media',
+                      onTap: () => soon('Media'),
+                      width: 76,
+                    ),
+                    _Item(
+                      Icons.chat_bubble_outline,
+                      'Discussion',
+                      onTap: () => soon('Discussion'),
+                      width: 76,
+                    ),
+                  ]),
+                ),
               const SizedBox(width: 9),
               Flexible(
                 flex: 2,

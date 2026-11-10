@@ -14,22 +14,28 @@ void main() {
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
     final api = FakeTasksApi(today: now);
+    final cubit = HomeCubit(api, now: () => now)..load();
     await tester.pumpWidget(
       MaterialApp(
         theme: appTheme,
         home: RepositoryProvider<TasksApi>.value(
           value: api,
-          child: BlocProvider(
-            create: (_) => HomeCubit(api, now: () => now)..load(),
+          child: BlocProvider.value(
+            value: cubit,
             child: HomePanel(onLogOut: () {}),
           ),
         ),
       ),
     );
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text(tab));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text(tab));
+    if (tab == 'my tasks') {
+      // Not a home tab: pulled down as My Workspace, which has the actions.
+      cubit.openWorkspace();
+    } else {
+      await tester.ensureVisible(find.text(tab));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(tab));
+    }
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('New task'));
     await tester.pumpAndSettle();
@@ -139,7 +145,7 @@ void main() {
       ),
     );
     expect(find.textContaining('· tasko-web'), findsWidgets);
-  }, skip: true);
+  });
 
   testWidgets('back to private drops the assignee chip', (tester) async {
     await openSheet(tester, 'my tasks');
@@ -157,7 +163,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('me'), findsNothing);
     expect(find.text('no proof'), findsNothing);
-  }, skip: true);
+  });
 
   testWidgets('a personal task has only due date and priority', (tester) async {
     await openSheet(tester, 'private');
