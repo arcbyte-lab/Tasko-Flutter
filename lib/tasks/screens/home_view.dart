@@ -28,7 +28,6 @@ class HomeView extends StatelessWidget {
     required this.onOpenMonth,
     required this.onFoldToWeek,
     required this.onToggleCompleted,
-    required this.onTick,
     required this.onOpen,
     required this.onNotifications,
     required this.onCreate,
@@ -68,7 +67,6 @@ class HomeView extends StatelessWidget {
   final VoidCallback onOpenMonth;
   final VoidCallback onFoldToWeek;
   final VoidCallback onToggleCompleted;
-  final ValueChanged<Task> onTick;
   final VoidCallback onCreate;
   final ValueChanged<Task> onOpen;
   final VoidCallback onNotifications;
@@ -103,13 +101,19 @@ class HomeView extends StatelessWidget {
     final day = page.selectedDay;
 
     final mine = page.activeTab?.kind == TabKind.myTasks;
-    Widget row(Task t) => TaskRow(
-      task: t,
-      tabName: mine ? page.tabOf(t)?.name : null,
-      now: page.today,
-      onTick: () => onTick(t),
-      onTap: () => onOpen(t),
-    );
+    // A personal task is the viewer's; a team task's assignee is a member.
+    final byId = {for (final m in page.members) m.user.id: m.user};
+    Widget row(Task t) {
+      final assignee = t.personal ? page.user : byId[t.assigneeId];
+      return TaskRow(
+        task: t,
+        assignee: assignee,
+        mine: assignee != null && assignee.id == page.user?.id,
+        tabName: mine ? page.tabOf(t)?.name : null,
+        now: page.today,
+        onTap: () => onOpen(t),
+      );
+    }
 
     return ListView(
       // Each tab keeps its own scroll position across swipes.

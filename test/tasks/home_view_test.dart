@@ -67,14 +67,6 @@ void main() {
       if (p.foregroundPainter case final DayRingPainter ring) ...ring.marks,
   };
 
-  Future<Finder> checkboxOf(WidgetTester tester, String title) async {
-    await scrollTo(tester, find.text(title));
-    return find.descendant(
-      of: find.widgetWithText(TaskRow, title),
-      matching: find.byType(InkResponse),
-    );
-  }
-
   testWidgets('home shows the header, calendar, tabs and grouped list', (
     tester,
   ) async {
@@ -99,12 +91,12 @@ void main() {
     await pump(tester);
     await tester.tap(day(14));
     await tester.pumpAndSettle();
-    expect(find.text('Oct 14'), findsOneWidget);
+    expect(find.byIcon(Icons.close), findsOneWidget); // the chip
     expect(find.text('5 open'), findsOneWidget);
     expect(find.text('TODAY'), findsNothing);
     expect(find.text('Fix login redirect'), findsNothing);
 
-    await tester.tap(find.text('Oct 14'));
+    await tester.tap(find.byIcon(Icons.close)); // the chip's ×
     await tester.pumpAndSettle();
     expect(find.text('Fix login redirect'), findsOneWidget);
   });
@@ -161,25 +153,6 @@ void main() {
     expect(find.text('0 open'), findsOneWidget);
   });
 
-  testWidgets('ticking moves a task to completed; a proof task asks a link', (
-    tester,
-  ) async {
-    await pump(tester);
-    await tester.tap(await checkboxOf(tester, 'Deploy staging'));
-    await tester.pumpAndSettle();
-    expect(find.text('Deploy staging'), findsNothing);
-    await scrollTo(tester, find.text('completed (4)'));
-
-    await tester.tap(await checkboxOf(tester, 'Upload release screenshots'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).last, 'https://x.dev/a.png');
-    await tester.pump();
-    await tester.tap(find.text('send for review'));
-    await tester.pumpAndSettle();
-    expect(find.text('send for review'), findsNothing);
-    expect(find.text('Upload release screenshots'), findsOneWidget);
-  });
-
   testWidgets('the full-screen calendar hides the list; a day collapses it', (
     tester,
   ) async {
@@ -199,7 +172,7 @@ void main() {
     await tester.tap(find.text('Design empty state'));
     await tester.pumpAndSettle();
     expect(find.text('WORKSPACES'), findsOneWidget);
-    expect(find.text('Oct 14'), findsOneWidget);
+    expect(find.byIcon(Icons.close), findsOneWidget); // the chip
     expect(find.text('5 open'), findsOneWidget);
     expect(find.byTooltip('Expand calendar'), findsOneWidget);
   });
@@ -290,14 +263,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(day(21), findsOneWidget);
     expect(day(14), findsNothing);
-    expect(find.text('Oct 14'), findsOneWidget);
+    expect(find.byIcon(Icons.close), findsOneWidget); // the chip
     expect(find.text('5 open'), findsOneWidget);
 
     // Dragging the tab bar down opens the month again; the day stays.
     await tester.drag(find.byType(TabStrip), const Offset(0, 200));
     await tester.pumpAndSettle();
     expect(day(1), findsOneWidget);
-    expect(find.text('Oct 14'), findsOneWidget);
+    expect(find.byIcon(Icons.close), findsOneWidget); // the chip
   });
 
   testWidgets('the tab bar folds the calendar with the finger (0016)', (
@@ -329,7 +302,7 @@ void main() {
     expect(panel(), lessThan(month - 120));
     expect(day(5), findsOneWidget);
     expect(day(12), findsNothing);
-    expect(find.text('Oct 7'), findsNothing); // no day chip
+    expect(find.byIcon(Icons.close), findsNothing); // no day chip
     expect(cubit.state.selectedDay, isNull);
 
     // The title no longer opens anything; only the drag does.
@@ -360,7 +333,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.getCenter(find.text('14')).dx, x14);
     expect(find.text('21'), findsNothing);
-    expect(find.text('Oct 14'), findsOneWidget);
+    expect(find.byIcon(Icons.close), findsOneWidget); // the chip
   });
 
   testWidgets('Today selects today from another month', (tester) async {
@@ -373,7 +346,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('October'), findsOneWidget);
     expect(cubit.state.selectedDay, DateTime(2026, 10, 7));
-    expect(find.text('Oct 7'), findsOneWidget);
+    expect(find.byIcon(Icons.close), findsOneWidget);
     expect(day(5), findsOneWidget);
     expect(day(12), findsNothing);
   });

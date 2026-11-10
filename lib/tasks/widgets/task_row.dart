@@ -4,28 +4,39 @@ import '../../core/theme/app_palette.dart';
 import '../../core/theme/app_theme.dart';
 import '../models.dart';
 import '../task_rules.dart';
+import 'task_badges.dart';
 
-/// Checkbox, title, then "priority · status · due" (hifi H1 task row), and
-/// " · tab" when [tabName] is given (in "my tasks", decision 0017).
+/// The task row of hifi H1 (the pen file's `hifi / Task Row`, 62 tall): the
+/// assignee's avatar, then two lines. Line 1: the title and the due date
+/// ("Overdue Oct 3" in red, " · tab" after it in "my tasks", decision 0017).
+/// Line 2: the task code and the priority badge, and the status badge on the
+/// right. There is no checkbox: a task is moved on in Task Detail.
 class TaskRow extends StatelessWidget {
   const TaskRow({
     super.key,
     required this.task,
     required this.now,
-    required this.onTick,
     required this.onTap,
+    this.assignee,
+    this.mine = false,
     this.tabName,
   });
 
   final Task task;
-
-  /// The tab the task lives in, shown last in the meta line.
-  final String? tabName;
   final DateTime now;
-  final VoidCallback onTick;
 
   /// Opens Task Detail.
   final VoidCallback onTap;
+
+  /// Whoever the task is assigned to, or the viewer for a personal task.
+  /// Null when nobody.
+  final User? assignee;
+
+  /// [assignee] is the viewer: a solid blue avatar.
+  final bool mine;
+
+  /// The tab the task lives in, shown after the date.
+  final String? tabName;
 
   static Color priorityColor(
     Priority p, [
@@ -41,65 +52,83 @@ class TaskRow extends StatelessWidget {
     final p = AppPalette.of(context);
     final done = task.status == TaskStatus.done;
     final overdue = isOverdue(task, now);
-    final meta = TextStyle(fontSize: 12, color: p.muted);
-    final red = meta.copyWith(color: AppColors.destructive);
-    const dot = TextSpan(text: ' · ');
+    final due = task.dueDate;
+    final dateText = [
+      if (due != null) '${overdue ? 'Overdue ' : ''}${shortDate(due, now)}',
+      ?tabName,
+    ].join(' · ');
+    final small = TextStyle(fontSize: 12, height: 15 / 12, color: p.muted);
 
     return InkWell(
       onTap: onTap,
       child: Container(
+        constraints: const BoxConstraints(minHeight: 62),
+        // 62 tall with the 1px line, as in the pen.
+        padding: const EdgeInsets.fromLTRB(15, 10, 15, 9),
         decoration: BoxDecoration(
           border: Border(bottom: BorderSide(color: p.border)),
         ),
-        padding: const EdgeInsets.fromLTRB(4, 6, 16, 6),
         child: Row(
+          spacing: 12,
           children: [
-            TaskCheckbox(status: task.status, onTap: onTick),
-            const SizedBox(width: 4),
+            TaskAvatar(assignee, mine: mine),
             Expanded(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                spacing: 4,
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
-                    task.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: done ? p.muted : p.foreground,
-                      decoration: done ? TextDecoration.lineThrough : null,
-                      decorationColor: p.muted,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text.rich(
-                    TextSpan(
-                      style: meta,
+                  LayoutBuilder(
+                    builder: (context, box) => Row(
+                      spacing: 4,
                       children: [
-                        TextSpan(
-                          text: task.priority.name,
-                          style: meta.copyWith(
-                            color: priorityColor(task.priority, p),
+                        Expanded(
+                          child: Text(
+                            task.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 15,
+                              height: 19 / 15,
+                              color: done ? p.muted : p.foreground,
+                            ),
                           ),
                         ),
-                        dot,
-                        TextSpan(text: task.status.label),
-                        if (overdue) ...[
-                          dot,
-                          TextSpan(text: 'overdue', style: red),
-                        ],
-                        if (task.dueDate != null) ...[
-                          dot,
-                          TextSpan(
-                            text: shortDate(task.dueDate!, now),
-                            style: overdue ? red : null,
+                        if (dateText.isNotEmpty)
+                          // A long "Overdue Oct 3 · tab" gives way to the title
+                          // past half the line.
+                          ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: box.maxWidth / 2,
+                            ),
+                            child: Text(
+                              dateText,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: overdue
+                                  ? small.copyWith(color: AppColors.destructive)
+                                  : small,
+                            ),
                           ),
-                        ],
-                        if (tabName != null) ...[dot, TextSpan(text: tabName)],
                       ],
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Row(
+                    spacing: 8,
+                    children: [
+                      if (task.code != null)
+                        Flexible(
+                          child: Text(
+                            task.code!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: small,
+                          ),
+                        ),
+                      PriorityBadge(task.priority),
+                      const Spacer(),
+                      StatusBadge(task.status),
+                    ],
                   ),
                 ],
               ),
@@ -107,6 +136,47 @@ class TaskRow extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// The 24px avatar on the left of a task row: the viewer's is solid blue,
+/// anyone else's the light #E0F2FE (H0), and nobody's a grey disc.
+class TaskAvatar extends StatelessWidget {
+  const TaskAvatar(this.user, {super.key, this.mine = false});
+
+  final User? user;
+  final bool mine;
+
+  @override
+  Widget build(BuildContext context) {
+    final u = user;
+    return Container(
+      width: 24,
+      height: 24,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: u == null
+            ? AppColors.secondary
+            : mine
+            ? const Color(0xFF2563EB)
+            : AppColors.accent,
+      ),
+      child: u == null
+          ? const Icon(
+              Icons.person_outline,
+              size: 14,
+              color: AppColors.mutedForeground,
+            )
+          : Text(
+              u.name[0].toUpperCase(),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: mine ? Colors.white : AppColors.accentForeground,
+              ),
+            ),
     );
   }
 }

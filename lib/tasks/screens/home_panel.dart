@@ -5,7 +5,6 @@ import '../../core/toast.dart';
 import '../../notifications/notifications_screen.dart';
 import '../home_cubit.dart';
 import '../models.dart';
-import '../widgets/reason_sheets.dart';
 import '../widgets/view_options_sheet.dart';
 import '../task_rules.dart';
 import '../tasks_api.dart';
@@ -75,15 +74,6 @@ class HomePanel extends StatelessWidget {
           onOpenMonth: cubit.openMonth,
           onFoldToWeek: cubit.foldToWeek,
           onToggleCompleted: cubit.toggleCompleted,
-          onTick: (task) async {
-            try {
-              await cubit.tick(task);
-            } on ProofRequired {
-              if (!context.mounted) return;
-              final link = await showProofSheet(context);
-              if (link != null) await cubit.tick(task, proofUrl: link);
-            }
-          },
           onCreate: create,
           onDiscussion: () async {
             await openDiscussions(

@@ -423,28 +423,4 @@ class HomeCubit extends Cubit<HomeState> {
 
   void toggleCompleted() =>
       emit(state.copyWith(showCompleted: !state.showCompleted));
-
-  /// Throws [ProofRequired] when the task needs [proofUrl] to be ticked.
-  Future<void> tick(Task task, {String? proofUrl}) async {
-    final next = statusAfterTick(task, proofUrl: proofUrl);
-    if (next == null) return;
-    // In "my tasks" the task lives in another tab.
-    final tab = state.tabOf(task) ?? state.activeTab!;
-    final updated = await _api.setStatus(task, next, proofUrl: proofUrl);
-    // Finishing a repeating task made the next one on the server.
-    if (task.repeat != null) return _refresh(tab);
-    emit(
-      state.copyWith(
-        tasksByTab: {
-          ...state.tasksByTab,
-          tab: [
-            for (final t in state.tasksByTab[tab] ?? const <Task>[])
-              t.id == updated.id && t.personal == updated.personal
-                  ? updated
-                  : t,
-          ],
-        },
-      ),
-    );
-  }
 }
