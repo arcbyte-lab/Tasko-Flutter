@@ -15,6 +15,7 @@ const _row = {
   'dueDate': '2026-10-09T10:00:00Z',
   'description': null,
   'assigneeId': 1,
+  'creatorId': 2,
   'requiredProofType': 'image',
   'personal': false,
   'code': 'TW-0007',
@@ -63,6 +64,7 @@ void main() {
     expect(task.priority, Priority.urgent);
     expect(task.dueDate, DateTime.utc(2026, 10, 9, 10).toLocal());
     expect(task.code, 'TW-0007');
+    expect(task.creatorId, 2);
   });
 
   test('priority goes out as 1–4; personal tasks have no assignee', () async {
