@@ -6,6 +6,7 @@ import 'package:tasko/tasks/home_cubit.dart';
 import 'package:tasko/tasks/models.dart';
 import 'package:tasko/tasks/screens/home_panel.dart';
 import 'package:tasko/tasks/tasks_api.dart';
+import 'package:tasko/tasks/widgets/tab_strip.dart';
 
 void main() {
   final now = DateTime(2026, 10, 7, 10);
@@ -43,10 +44,15 @@ void main() {
       tester.element(find.byType(HomePanel)).read<HomeCubit>().openWorkspace();
       await tester.pumpAndSettle();
     } else {
-      await tester.ensureVisible(find.text(tab));
+      await tester.ensureVisible(
+        find.descendant(of: find.byType(TabStrip), matching: find.text(tab)),
+      );
     }
     await tester.pumpAndSettle();
-    await tester.tap(find.text(tab));
+    // the tab bar's, not a row's scope text
+    await tester.tap(
+      find.descendant(of: find.byType(TabStrip), matching: find.text(tab)),
+    );
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
       find.text(task),

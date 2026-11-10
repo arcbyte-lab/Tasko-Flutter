@@ -8,9 +8,9 @@ import 'task_badges.dart';
 
 /// The task row of hifi H1 (the pen file's `hifi / Task Row`, 62 tall): the
 /// assignee's avatar, then two lines. Line 1: the title and the due date
-/// ("Overdue Oct 3" in red, " · tab" after it in "my tasks", decision 0017).
-/// Line 2: the task code and the priority badge, and the status badge on the
-/// right. There is no checkbox: a task is moved on in Task Detail.
+/// ("Overdue Oct 3" in red). Line 2: the task code and where the task lives
+/// ("TECH-0141·tech"), the priority badge, and the status badge on the right.
+/// There is no checkbox: a task is moved on in Task Detail.
 class TaskRow extends StatelessWidget {
   const TaskRow({
     super.key,
@@ -35,7 +35,7 @@ class TaskRow extends StatelessWidget {
   /// [assignee] is the viewer: a solid blue avatar.
   final bool mine;
 
-  /// The tab the task lives in, shown after the date.
+  /// Where the task lives: its division or project, after the code.
   final String? tabName;
 
   static Color priorityColor(
@@ -53,10 +53,12 @@ class TaskRow extends StatelessWidget {
     final done = task.status == TaskStatus.done;
     final overdue = isOverdue(task, now);
     final due = task.dueDate;
-    final dateText = [
-      if (due != null) '${overdue ? 'Overdue ' : ''}${shortDate(due, now)}',
-      ?tabName,
-    ].join(' · ');
+    final dateText = due == null
+        ? ''
+        : '${overdue ? 'Overdue ' : ''}${shortDate(due, now)}';
+    // "TECH-0141·tech": the code, then where the task lives (a division or a
+    // project), with no spaces round the dot.
+    final idText = [?task.code, ?tabName].join('·');
     final small = TextStyle(fontSize: 12, height: 15 / 12, color: p.muted);
 
     return InkWell(
@@ -95,8 +97,7 @@ class TaskRow extends StatelessWidget {
                           ),
                         ),
                         if (dateText.isNotEmpty)
-                          // A long "Overdue Oct 3 · tab" gives way to the title
-                          // past half the line.
+                          // A long date gives way to the title past half the line.
                           ConstrainedBox(
                             constraints: BoxConstraints(
                               maxWidth: box.maxWidth / 2,
@@ -116,17 +117,27 @@ class TaskRow extends StatelessWidget {
                   Row(
                     spacing: 8,
                     children: [
-                      if (task.code != null)
-                        Flexible(
-                          child: Text(
-                            task.code!,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: small,
-                          ),
+                      // One side takes what the status badge leaves, so the
+                      // badge ends on the right edge, under the date. (A
+                      // Flexible beside a Spacer would split the free space
+                      // and leave half of it unused.)
+                      Expanded(
+                        child: Row(
+                          spacing: 8,
+                          children: [
+                            if (idText.isNotEmpty)
+                              Flexible(
+                                child: Text(
+                                  idText,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: small,
+                                ),
+                              ),
+                            PriorityBadge(task.priority),
+                          ],
                         ),
-                      PriorityBadge(task.priority),
-                      const Spacer(),
+                      ),
                       StatusBadge(task.status),
                     ],
                   ),

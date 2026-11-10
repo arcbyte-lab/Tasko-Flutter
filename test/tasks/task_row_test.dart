@@ -95,7 +95,7 @@ void main() {
   );
 
   testWidgets(
-    'a date in my tasks names the tab; no date, no code, no problem',
+    'the scope follows the code with no spaces; no date, no code, no problem',
     (tester) async {
       await pump(
         tester,
@@ -106,12 +106,49 @@ void main() {
           tabName: 'tasko-web',
         ),
       );
-      expect(find.text('Oct 9 · tasko-web'), findsOneWidget);
+      // no code: the scope alone
+      expect(find.text('Oct 9'), findsOneWidget);
+      expect(find.text('tasko-web'), findsOneWidget);
       expect(find.text('TW-0042'), findsNothing);
+      await pump(
+        tester,
+        TaskRow(task: task(), now: now, onTap: () {}, tabName: 'tech'),
+      );
+      expect(find.text('TW-0042·tech'), findsOneWidget);
       await pump(tester, TaskRow(task: task(), now: now, onTap: () {}));
       expect(find.textContaining('Oct'), findsNothing);
     },
   );
+
+  testWidgets('the status badge ends on the right edge, under the date', (
+    tester,
+  ) async {
+    // The code is short, so a Flexible beside a Spacer once left a gap here.
+    for (final code in ['TW-1', 'TECH-0141']) {
+      await pump(
+        tester,
+        TaskRow(
+          task: task(due: DateTime(2026, 10, 9), code: code),
+          now: now,
+          onTap: () {},
+          tabName: 'tech',
+        ),
+      );
+      Rect edge(String text) => tester.getRect(find.text(text));
+      Rect badge() => tester.getRect(
+        find.ancestor(
+          of: find.text('In Progress'),
+          matching: find.byWidgetPredicate(
+            (w) =>
+                w is Container &&
+                w.decoration is BoxDecoration &&
+                (w.decoration as BoxDecoration).border?.isUniform == true,
+          ),
+        ),
+      );
+      expect(badge().right, edge('Oct 9').right);
+    }
+  });
 
   testWidgets('badge colours follow the pen file, light and dark', (
     tester,

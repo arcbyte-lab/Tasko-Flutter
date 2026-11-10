@@ -5,6 +5,7 @@ import 'package:tasko/core/theme/app_theme.dart';
 import 'package:tasko/tasks/home_cubit.dart';
 import 'package:tasko/tasks/screens/home_panel.dart';
 import 'package:tasko/tasks/tasks_api.dart';
+import 'package:tasko/tasks/widgets/tab_strip.dart';
 
 void main() {
   final now = DateTime(2026, 10, 7, 10);
@@ -32,7 +33,15 @@ void main() {
       // Not home tabs: they live on My Workspace, which has the actions.
       cubit.openWorkspace();
       await tester.pumpAndSettle();
-      if (tab == 'private') await tester.tap(find.text('private'));
+      if (tab == 'private') {
+        // the tab bar's, not the rows of personal tasks that say private too
+        await tester.tap(
+          find.descendant(
+            of: find.byType(TabStrip),
+            matching: find.text('private'),
+          ),
+        );
+      }
     } else {
       await tester.ensureVisible(find.text(tab));
       await tester.pumpAndSettle();
@@ -146,7 +155,7 @@ void main() {
         matching: find.byType(Scrollable),
       ),
     );
-    expect(find.textContaining('· tasko-web'), findsWidgets);
+    expect(find.textContaining('·tasko-web'), findsWidgets);
   });
 
   testWidgets('back to private drops the assignee chip', (tester) async {
