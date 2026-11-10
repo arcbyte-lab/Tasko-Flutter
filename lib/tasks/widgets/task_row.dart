@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/theme/app_palette.dart';
 import '../../core/theme/app_theme.dart';
 import '../models.dart';
 import '../task_rules.dart';
@@ -26,25 +27,29 @@ class TaskRow extends StatelessWidget {
   /// Opens Task Detail.
   final VoidCallback onTap;
 
-  static Color priorityColor(Priority p) => switch (p) {
+  static Color priorityColor(
+    Priority p, [
+    AppPalette palette = AppPalette.light,
+  ]) => switch (p) {
     Priority.urgent => AppColors.destructive,
-    Priority.high => AppColors.foreground,
-    Priority.medium || Priority.low => AppColors.mutedForeground,
+    Priority.high => palette.foreground,
+    Priority.medium || Priority.low => palette.muted,
   };
 
   @override
   Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
     final done = task.status == TaskStatus.done;
     final overdue = isOverdue(task, now);
-    const meta = TextStyle(fontSize: 12, color: AppColors.mutedForeground);
+    final meta = TextStyle(fontSize: 12, color: p.muted);
     final red = meta.copyWith(color: AppColors.destructive);
     const dot = TextSpan(text: ' · ');
 
     return InkWell(
       onTap: onTap,
       child: Container(
-        decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: AppColors.border)),
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: p.border)),
         ),
         padding: const EdgeInsets.fromLTRB(4, 6, 16, 6),
         child: Row(
@@ -61,11 +66,9 @@ class TaskRow extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 15,
-                      color: done
-                          ? AppColors.mutedForeground
-                          : AppColors.foreground,
+                      color: done ? p.muted : p.foreground,
                       decoration: done ? TextDecoration.lineThrough : null,
-                      decorationColor: AppColors.mutedForeground,
+                      decorationColor: p.muted,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -76,7 +79,7 @@ class TaskRow extends StatelessWidget {
                         TextSpan(
                           text: task.priority.name,
                           style: meta.copyWith(
-                            color: priorityColor(task.priority),
+                            color: priorityColor(task.priority, p),
                           ),
                         ),
                         dot,
@@ -125,6 +128,7 @@ class TaskCheckbox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
     final review = status == TaskStatus.review;
     final done = status == TaskStatus.done;
     return Semantics(
@@ -144,13 +148,11 @@ class TaskCheckbox extends StatelessWidget {
               height: size,
               clipBehavior: Clip.antiAlias,
               decoration: BoxDecoration(
-                color: done ? AppColors.primary : Colors.white,
+                color: done ? AppColors.primary : p.background,
                 borderRadius: BorderRadius.circular(4),
                 border: Border.all(
                   width: 1.5,
-                  color: done || review
-                      ? AppColors.primary
-                      : AppColors.controlBorder,
+                  color: done || review ? AppColors.primary : p.control,
                 ),
               ),
               child: done

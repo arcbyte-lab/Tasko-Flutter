@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tasko/core/theme/app_theme.dart';
 import 'package:tasko/tasks/home_cubit.dart';
 import 'package:tasko/tasks/members_cubit.dart';
-import 'package:tasko/tasks/models.dart';
 import 'package:tasko/tasks/screens/home_panel.dart';
 import 'package:tasko/tasks/tasks_api.dart';
 import 'package:tasko/tasks/widgets/pickers.dart';
@@ -49,7 +48,7 @@ void main() {
       await home.reloadTabs();
 
       expect(home.state.tabs, isNot(contains(app)));
-      expect(home.state.activeTab, TaskTab.myTasks);
+      expect(home.state.activeTab, home.state.homeTabs.first);
     });
   });
 

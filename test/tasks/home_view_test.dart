@@ -33,6 +33,12 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    if (tab == 'my tasks') {
+      // Not a home tab: it lives on My Workspace (hifi H13).
+      cubit.openWorkspace();
+      await tester.pumpAndSettle();
+      return;
+    }
     await tester.ensureVisible(find.text(tab));
     await tester.pumpAndSettle();
     await tester.tap(find.text(tab));
@@ -111,6 +117,41 @@ void main() {
     for (final tip in ['Members', 'Repeating', 'Activity']) {
       expect(find.byTooltip(tip), findsNothing);
     }
+  });
+
+  testWidgets('home has no my tasks tab; a pull down on the calendar opens '
+      'My Workspace, dark, with only the actions rail', (tester) async {
+    await pump(tester);
+    expect(find.text('my tasks'), findsNothing);
+    expect(find.byTooltip('Media'), findsOneWidget);
+    expect(find.byTooltip('New task'), findsOneWidget);
+
+    await tester.drag(find.byType(PulsePanel), const Offset(0, 500));
+    await tester.pumpAndSettle();
+    expect(cubit.state.workspaceOpen, isTrue);
+    expect(find.text('MY WORKSPACE'), findsOneWidget);
+    expect(find.text('my tasks'), findsOneWidget);
+    expect(find.text('private'), findsOneWidget); // only here, not on home
+    expect(find.byTooltip('New task'), findsOneWidget);
+    expect(find.byTooltip('Media'), findsNothing); // navigations stay home
+    expect(find.text('HOME'), findsNothing);
+    expect(find.text('Pay internet bill'), findsOneWidget); // mine, any tab
+
+    // the grabber strip brings home back, on the tab it left
+    await tester.tap(find.bySemanticsLabel('swipe up to back to home'));
+    await tester.pumpAndSettle();
+    expect(cubit.state.workspaceOpen, isFalse);
+    expect(find.byTooltip('New task'), findsOneWidget);
+    expect(find.text('MY WORKSPACE'), findsNothing);
+    expect(cubit.state.activeTab?.name, 'tasko-web');
+  });
+
+  testWidgets('a short pull on the calendar springs back', (tester) async {
+    await pump(tester);
+    await tester.drag(find.byType(PulsePanel), const Offset(0, 60));
+    await tester.pumpAndSettle();
+    expect(cubit.state.workspaceOpen, isFalse);
+    expect(find.byTooltip('New task'), findsOneWidget);
   });
 
   testWidgets('an empty tab shows the empty state', (tester) async {
@@ -311,12 +352,10 @@ void main() {
     });
 
     testWidgets('stops at both ends', (tester) async {
-      await startOn(tester, 'my tasks');
-      await fling(tester, 300); // my tasks is the first
-      expect(find.text('Pay internet bill'), findsOneWidget); // private's, mine
+      await startOn(tester, 'tech');
+      await fling(tester, 300); // tech is the first on home
+      expect(find.text('no tasks here'), findsOneWidget);
 
-      await fling(tester, -300); // private
-      await fling(tester, -300); // tech
       await fling(tester, -300); // tasko-app
       await fling(tester, -300); // tasko-web, the last
       await fling(tester, -300);

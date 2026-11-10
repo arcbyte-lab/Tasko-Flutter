@@ -14,22 +14,30 @@ void main() {
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
     final api = FakeTasksApi(today: now);
+    final cubit = HomeCubit(api, now: () => now)..load();
     await tester.pumpWidget(
       MaterialApp(
         theme: appTheme,
         home: RepositoryProvider<TasksApi>.value(
           value: api,
-          child: BlocProvider(
-            create: (_) => HomeCubit(api, now: () => now)..load(),
+          child: BlocProvider.value(
+            value: cubit,
             child: HomePanel(onLogOut: () {}),
           ),
         ),
       ),
     );
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text(tab));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text(tab));
+    if (tab == 'my tasks' || tab == 'private') {
+      // Not home tabs: they live on My Workspace, which has the actions.
+      cubit.openWorkspace();
+      await tester.pumpAndSettle();
+      if (tab == 'private') await tester.tap(find.text('private'));
+    } else {
+      await tester.ensureVisible(find.text(tab));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(tab));
+    }
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('New task'));
     await tester.pumpAndSettle();

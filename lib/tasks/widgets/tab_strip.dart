@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/theme/app_palette.dart';
 import '../../core/theme/app_theme.dart';
 import '../models.dart';
 
@@ -15,6 +16,7 @@ class TabStrip extends StatefulWidget {
     required this.active,
     required this.position,
     required this.onSelect,
+    this.showLabels = true,
   });
 
   final List<TaskTab> tabs;
@@ -23,6 +25,9 @@ class TabStrip extends StatefulWidget {
   /// The page position: 0 is the first tab, 1.5 halfway to the third.
   final ValueListenable<double> position;
   final ValueChanged<TaskTab> onSelect;
+
+  /// My Workspace draws the tabs with no group labels.
+  final bool showLabels;
 
   @override
   State<TabStrip> createState() => _TabStripState();
@@ -70,7 +75,10 @@ class _TabStripState extends State<TabStrip> {
                 opacity: hideLabel ? 0 : 1,
                 child: ExcludeSemantics(
                   excluding: hideLabel,
-                  child: Text(label, style: groupLabelStyle()),
+                  child: Text(
+                    label,
+                    style: groupLabelStyle(color: AppPalette.of(context).muted),
+                  ),
                 ),
               ),
             ),
@@ -94,15 +102,18 @@ class _TabStripState extends State<TabStrip> {
       children: [
         // "my tasks" first, with no group label (decision 0017).
         if (mine.isNotEmpty) group('MY TASKS', mine, hideLabel: true),
-        if (workspaces.isNotEmpty) group('WORKSPACES', workspaces),
+        if (workspaces.isNotEmpty)
+          group('WORKSPACES', workspaces, hideLabel: !widget.showLabels),
         if (projects.isNotEmpty) group('PROJECTS', projects),
       ],
     );
 
     return Container(
       width: double.infinity,
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppColors.border)),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: AppPalette.of(context).border),
+        ),
       ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -144,7 +155,9 @@ class _Tab extends StatelessWidget {
             fontFamily: fontMono,
             fontSize: 13,
             fontWeight: FontWeight.w500,
-            color: active ? AppColors.foreground : AppColors.mutedForeground,
+            color: active
+                ? AppPalette.of(context).foreground
+                : AppPalette.of(context).muted,
           ),
         ),
       ),

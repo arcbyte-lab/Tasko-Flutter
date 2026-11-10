@@ -38,7 +38,13 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text(tab));
+    if (tab == 'private') {
+      // Not a home tab: it lives on My Workspace (decision 0020).
+      tester.element(find.byType(HomePanel)).read<HomeCubit>().openWorkspace();
+      await tester.pumpAndSettle();
+    } else {
+      await tester.ensureVisible(find.text(tab));
+    }
     await tester.pumpAndSettle();
     await tester.tap(find.text(tab));
     await tester.pumpAndSettle();

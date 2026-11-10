@@ -16,8 +16,8 @@ void main() {
   Task named(String name) =>
       cubit.state.tasks.firstWhere((t) => t.name == name);
 
-  test('loads my tasks first and opens on it, then private, divisions, '
-      'projects (0017)', () {
+  test('loads my tasks first in the list but home opens on tech; '
+      'My Workspace opens on my tasks (0020)', () {
     expect(cubit.state.tabs.map((t) => t.name), [
       'my tasks',
       'private',
@@ -25,11 +25,24 @@ void main() {
       'tasko-app',
       'tasko-web',
     ]);
-    expect(cubit.state.activeTab, TaskTab.myTasks);
+    expect(cubit.state.activeTab, FakeTasksApi.tech);
+    expect(cubit.state.homeTabs, [
+      FakeTasksApi.tech,
+      FakeTasksApi.taskoApp,
+      FakeTasksApi.taskoWeb,
+    ]);
+    expect(cubit.state.workspaceTabs, [TaskTab.myTasks, TaskTab.private]);
     expect(cubit.state.tasksByTab.keys, isNot(contains(TaskTab.myTasks)));
+    cubit.openWorkspace();
+    expect(cubit.state.workspaceOpen, isTrue);
+    expect(cubit.state.activeTab, TaskTab.myTasks);
+    cubit.closeWorkspace();
+    expect(cubit.state.workspaceOpen, isFalse);
+    expect(cubit.state.activeTab, FakeTasksApi.tech);
   });
 
   test('my tasks: personal, assigned to me, and my reviews (0017)', () async {
+    cubit.openWorkspace();
     final me = cubit.state.user!.id;
     final mine = cubit.state.tasks;
     // Every personal task.
@@ -50,6 +63,7 @@ void main() {
   });
 
   test('my tasks: the dots count a review', () {
+    cubit.openWorkspace();
     final review = cubit.state.tasks.firstWhere(
       (t) => t.status == TaskStatus.review && t.dueDate != null,
     );
@@ -58,6 +72,7 @@ void main() {
   });
 
   test('ticking in my tasks updates the tab the task lives in', () async {
+    cubit.openWorkspace();
     final t = cubit.state.tasks.firstWhere(
       (t) => !t.personal && isOpen(t) && t.requiredProofType == null,
     );
@@ -194,6 +209,7 @@ void main() {
   );
 
   test('the change survives switching tabs (the API kept it)', () async {
+    await cubit.selectTab(TaskTab.private);
     await cubit.tick(named('Renew passport'));
     await cubit.selectTab(FakeTasksApi.tech);
     await cubit.selectTab(TaskTab.private);

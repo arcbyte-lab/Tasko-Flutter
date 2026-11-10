@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/theme/app_palette.dart';
 import '../../core/theme/app_theme.dart';
 import '../home_cubit.dart';
 import '../models.dart';
@@ -10,6 +11,7 @@ import '../widgets/rails.dart';
 import '../widgets/stats_strip.dart';
 import '../widgets/tab_pages.dart';
 import '../widgets/tab_strip.dart';
+import '../widgets/workspace_pull.dart';
 import '../widgets/task_row.dart';
 
 /// The home screen, drawn from plain [state]. Wiring lives in HomePanel.
@@ -42,7 +44,15 @@ class HomeView extends StatelessWidget {
     required this.onAccountSettings,
     this.onNewProject,
     required this.onLogOut,
+    this.workspace = false,
+    this.wrapCalendar,
   });
+
+  /// Draws My Workspace, the dark screen, instead of home (hifi H13).
+  final bool workspace;
+
+  /// Wraps the open month so a pull down on it can reach My Workspace.
+  final Widget Function(Widget calendar)? wrapCalendar;
 
   final HomeState state;
   final ValueChanged<TaskTab> onSelectTab;
@@ -127,8 +137,74 @@ class HomeView extends StatelessWidget {
           ),
           if (page.showCompleted) ...completed.map(row),
         ],
-        const SizedBox(height: 100), // room to scroll past the rails
+        // room to scroll past the rails (and My Workspace's grabber strip)
+        SizedBox(height: workspace ? 100 + WorkspacePull.peek : 100),
       ],
+    );
+  }
+
+  Widget _pullable(Widget calendar) => state.showsWeek || state.calendarExpanded
+      ? calendar
+      : wrapCalendar?.call(calendar) ?? calendar;
+
+  /// My Workspace: dark, with "my tasks" and "private" and no calendar or
+  /// rails; home is pulled over it by [WorkspacePull].
+  Widget _buildWorkspace(Widget toolbar) {
+    final tabs = state.workspaceTabs;
+    final active = tabs.contains(state.activeTab)
+        ? state.activeTab!
+        : tabs.first;
+    return PaletteScope(
+      palette: AppPalette.dark,
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: Column(
+          children: [
+            _TopBar(
+              title: 'MY WORKSPACE',
+              user: state.user!,
+              unread: state.unread > 0,
+              onNotifications: onNotifications,
+              onMyActivity: onMyActivity,
+              onAccountSettings: onAccountSettings,
+              onLogOut: onLogOut,
+            ),
+            StatsStrip(state.workload),
+            Expanded(
+              child: TabPages(
+                tabs: tabs,
+                active: active,
+                onPageChanged: onSelectTab,
+                pageBuilder: (tab) => _page(state.pageFor(tab)),
+                header: (position) => Column(
+                  children: [
+                    TabStrip(
+                      tabs: tabs,
+                      active: active,
+                      position: position,
+                      onSelect: onSelectTab,
+                      showLabels: false,
+                    ),
+                    toolbar,
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        // Only the actions, resting on the grabber strip.
+        extendBody: true,
+        bottomNavigationBar: state.searching
+            ? null
+            : Padding(
+                padding: const EdgeInsets.only(bottom: WorkspacePull.peek),
+                child: Rails(
+                  navigations: false,
+                  onNewTask: onCreate,
+                  onNewProject: onNewProject,
+                ),
+              ),
+      ),
     );
   }
 
@@ -150,6 +226,12 @@ class HomeView extends StatelessWidget {
             onActivity: onActivity,
           );
 
+    if (workspace) return _buildWorkspace(toolbar);
+
+    final tabs = state.homeTabs;
+    final active = tabs.contains(state.activeTab)
+        ? state.activeTab!
+        : tabs.first;
     return Scaffold(
       body: SafeArea(
         top: false,
@@ -163,6 +245,7 @@ class HomeView extends StatelessWidget {
           builder: (context, fold, handle) => Column(
             children: [
               _TopBar(
+                title: 'HOME',
                 user: state.user!,
                 unread: state.unread > 0,
                 onNotifications: onNotifications,
@@ -182,21 +265,23 @@ class HomeView extends StatelessWidget {
                         ? double.infinity
                         : MediaQuery.sizeOf(context).height * 0.4,
                   ),
-                  child: PulsePanel(
-                    expanded: state.calendarExpanded,
-                    onToggleExpanded: onToggleCalendar,
-                    month: state.month,
-                    week: state.week,
-                    today: state.today,
-                    dueOn: state.dueOn,
-                    selectedDay: state.selectedDay,
-                    showsWeek: state.showsWeek,
-                    onDayTap: onDayTap,
-                    onMonthChange: onMonthChange,
-                    onWeekChange: onWeekChange,
-                    onToday: onToday,
-                    fold: fold,
-                    handle: handle,
+                  child: _pullable(
+                    PulsePanel(
+                      expanded: state.calendarExpanded,
+                      onToggleExpanded: onToggleCalendar,
+                      month: state.month,
+                      week: state.week,
+                      today: state.today,
+                      dueOn: state.dueOn,
+                      selectedDay: state.selectedDay,
+                      showsWeek: state.showsWeek,
+                      onDayTap: onDayTap,
+                      onMonthChange: onMonthChange,
+                      onWeekChange: onWeekChange,
+                      onToday: onToday,
+                      fold: fold,
+                      handle: handle,
+                    ),
                   ),
                 ),
               ),
@@ -204,16 +289,16 @@ class HomeView extends StatelessWidget {
               if (!state.calendarExpanded) ...[
                 Expanded(
                   child: TabPages(
-                    tabs: state.tabs,
-                    active: state.activeTab!,
+                    tabs: tabs,
+                    active: active,
                     onPageChanged: onSelectTab,
                     pageBuilder: (tab) => _page(state.pageFor(tab)),
                     header: (position) => Column(
                       children: [
                         handle(
                           TabStrip(
-                            tabs: state.tabs,
-                            active: state.activeTab,
+                            tabs: tabs,
+                            active: active,
                             position: position,
                             onSelect: onSelectTab,
                           ),
@@ -241,6 +326,7 @@ class HomeView extends StatelessWidget {
 /// the pen file (2026-11-10). The black runs under the status bar.
 class _TopBar extends StatelessWidget {
   const _TopBar({
+    required this.title,
     required this.user,
     required this.unread,
     required this.onNotifications,
@@ -249,6 +335,7 @@ class _TopBar extends StatelessWidget {
     required this.onLogOut,
   });
 
+  final String title;
   final User user;
   final bool unread;
   final VoidCallback onNotifications;
@@ -294,10 +381,10 @@ class _TopBar extends StatelessWidget {
         height: 61,
         child: Row(
           children: [
-            const Expanded(
+            Expanded(
               child: Text(
-                'HOME',
-                style: TextStyle(
+                title,
+                style: const TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w500,
                   letterSpacing: -1,
@@ -501,56 +588,53 @@ class _Toolbar extends StatelessWidget {
   final VoidCallback? onActivity;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(16, 4, 4, 0),
-    child: Row(
-      children: [
-        Expanded(
-          child: Text(
-            '$count open',
-            style: const TextStyle(
-              fontSize: 12,
-              color: AppColors.mutedForeground,
+  Widget build(BuildContext context) {
+    final muted = AppPalette.of(context).muted;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 4, 0),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              '$count open',
+              style: TextStyle(fontSize: 12, color: muted),
             ),
           ),
-        ),
-        if (onMembers != null)
+          if (onMembers != null)
+            IconButton(
+              onPressed: onMembers,
+              tooltip: 'Members',
+              icon: Icon(Icons.group_outlined, color: muted),
+            ),
+          if (onRepeating != null)
+            IconButton(
+              onPressed: onRepeating,
+              tooltip: 'Repeating',
+              icon: Icon(Icons.repeat, color: muted),
+            ),
+          if (onActivity != null)
+            IconButton(
+              onPressed: onActivity,
+              tooltip: 'Activity',
+              icon: Icon(Icons.history, color: muted),
+            ),
           IconButton(
-            onPressed: onMembers,
-            tooltip: 'Members',
-            icon: const Icon(
-              Icons.group_outlined,
-              color: AppColors.mutedForeground,
+            onPressed: onSearch,
+            tooltip: 'Search',
+            icon: Icon(Icons.search, color: muted),
+          ),
+          IconButton(
+            onPressed: onViewOptions,
+            tooltip: 'View options',
+            icon: Icon(
+              Icons.tune,
+              color: customised ? AppColors.primary : muted,
             ),
           ),
-        if (onRepeating != null)
-          IconButton(
-            onPressed: onRepeating,
-            tooltip: 'Repeating',
-            icon: const Icon(Icons.repeat, color: AppColors.mutedForeground),
-          ),
-        if (onActivity != null)
-          IconButton(
-            onPressed: onActivity,
-            tooltip: 'Activity',
-            icon: const Icon(Icons.history, color: AppColors.mutedForeground),
-          ),
-        IconButton(
-          onPressed: onSearch,
-          tooltip: 'Search',
-          icon: const Icon(Icons.search, color: AppColors.mutedForeground),
-        ),
-        IconButton(
-          onPressed: onViewOptions,
-          tooltip: 'View options',
-          icon: Icon(
-            Icons.tune,
-            color: customised ? AppColors.primary : AppColors.mutedForeground,
-          ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }
 
 class _SearchField extends StatelessWidget {
@@ -571,7 +655,10 @@ class _SearchField extends StatelessWidget {
         autofocus: true,
         onChanged: onChanged,
         textInputAction: TextInputAction.search,
-        style: const TextStyle(fontSize: 15),
+        style: TextStyle(
+          fontSize: 15,
+          color: AppPalette.of(context).foreground,
+        ),
         decoration: InputDecoration(
           isDense: true,
           hintText: 'search tasks',
@@ -653,7 +740,7 @@ class _GroupHeader extends StatelessWidget {
     child: Text(
       label,
       style: groupLabelStyle(
-        color: alert ? AppColors.destructive : AppColors.mutedForeground,
+        color: alert ? AppColors.destructive : AppPalette.of(context).muted,
       ),
     ),
   );
@@ -671,56 +758,62 @@ class _CompletedRow extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => InkWell(
-    onTap: onTap,
-    child: Padding(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-      child: Row(
-        children: [
-          Text(
-            'completed ($count)',
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: AppColors.mutedForeground,
+  Widget build(BuildContext context) {
+    final muted = AppPalette.of(context).muted;
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        child: Row(
+          children: [
+            Text(
+              'completed ($count)',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: muted,
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Icon(
-            open ? Icons.expand_less : Icons.expand_more,
-            size: 20,
-            color: AppColors.mutedForeground,
-          ),
-        ],
+            const SizedBox(width: 8),
+            Icon(
+              open ? Icons.expand_less : Icons.expand_more,
+              size: 20,
+              color: muted,
+            ),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _EmptyState extends StatelessWidget {
   const _EmptyState();
 
   @override
-  Widget build(BuildContext context) => const Padding(
-    padding: EdgeInsets.only(top: 64),
-    child: Column(
-      children: [
-        Icon(Icons.inbox_outlined, size: 40, color: AppColors.controlBorder),
-        SizedBox(height: 12),
-        Text(
-          'no tasks here',
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w500,
-            color: AppColors.foreground,
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: 64),
+      child: Column(
+        children: [
+          Icon(Icons.inbox_outlined, size: 40, color: p.control),
+          const SizedBox(height: 12),
+          Text(
+            'no tasks here',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+              color: p.foreground,
+            ),
           ),
-        ),
-        SizedBox(height: 4),
-        Text(
-          'tap + to add one',
-          style: TextStyle(fontSize: 13, color: AppColors.mutedForeground),
-        ),
-      ],
-    ),
-  );
+          const SizedBox(height: 4),
+          Text(
+            'tap + to add one',
+            style: TextStyle(fontSize: 13, color: p.muted),
+          ),
+        ],
+      ),
+    );
+  }
 }
