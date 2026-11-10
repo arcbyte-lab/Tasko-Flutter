@@ -50,6 +50,9 @@ abstract interface class TasksApi {
   /// A `task_deadline_requests` row.
   Future<void> requestExtension(Task task, DateTime newDue, String reason);
 
+  /// The creator archives the task; it leaves every tab (arcbyte decision 0019).
+  Future<void> archiveTask(Task task);
+
   /// The viewer's notifications, newest first.
   Future<List<AppNotification>> notifications();
 
@@ -140,6 +143,7 @@ class FakeTasksApi implements TasksApi {
   /// What was sent, for tests to check.
   final reviews = <(int taskId, bool approve, String? reason)>[];
   final extensionRequests = <(int taskId, DateTime newDue, String reason)>[];
+  final archived = <int>[];
 
   static const tech = TaskTab(TabKind.division, 1, 'tech');
   static const taskoApp = TaskTab(TabKind.project, 1, 'tasko-app');
@@ -340,6 +344,9 @@ class FakeTasksApi implements TasksApi {
       assignee: assignee,
       proof: team ? _proofs[task.id]?.first : null,
       proofs: team ? [...?_proofs[task.id]] : const [],
+      pendingExtension: team
+          ? extensionRequests.where((r) => r.$1 == task.id).lastOrNull?.$2
+          : null,
       canReview: team && tab == taskoWeb,
       canArchive: team && _creatorOf[task.id] == _me.id,
       canRequestExtension: team && tab != taskoWeb && task.assigneeId == _me.id,
@@ -449,6 +456,14 @@ class FakeTasksApi implements TasksApi {
     DateTime newDue,
     String reason,
   ) async => extensionRequests.add((task.id, newDue, reason));
+
+  @override
+  Future<void> archiveTask(Task task) async {
+    archived.add(task.id);
+    for (final list in _tasks.values) {
+      list.removeWhere((t) => t.id == task.id || t.parentId == task.id);
+    }
+  }
 
   @override
   Future<List<AppNotification>> notifications() async =>

@@ -145,6 +145,18 @@ void main() {
     expect(api.extensionRequests.single.$3, 'Waiting on access');
   });
 
+  test(
+    'a requested extension shows as pending; archive reaches the api',
+    () async {
+      final c = await open(FakeTasksApi.taskoApp, 'Set up CI');
+      expect(c.state.detail!.pendingExtension, isNull);
+      await c.requestExtension(DateTime(2026, 10, 12, 9), 'Waiting on access');
+      expect(c.state.detail!.pendingExtension, DateTime(2026, 10, 12, 9));
+      await c.archive();
+      expect(api.archived, [c.state.task.id]);
+    },
+  );
+
   test('personal tasks: no review, no extension', () async {
     final c = await open(TaskTab.private, 'Buy domain');
     final d = c.state.detail!;

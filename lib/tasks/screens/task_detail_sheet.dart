@@ -133,7 +133,11 @@ class _TaskDetailPanel extends StatelessWidget {
             await cubit.requestExtension(v.$1, v.$2);
             if (context.mounted) showToast(context, 'extension requested');
           },
-          onArchive: () => showToast(context, 'action: archive task'),
+          onArchive: () async {
+            if (!await _confirmArchive(context)) return;
+            await cubit.archive();
+            if (context.mounted) Navigator.pop(context);
+          },
           onProofList: () =>
               showProofListSheet(context, state.detail!.proofs, today),
           onActivity: () => openActivity(
@@ -298,7 +302,16 @@ class TaskDetailView extends StatelessWidget {
                 label: 'due',
                 onTap: editing && canEditDue ? onDueDate : null,
                 boxed: editing && canEditDue,
-                value: _dueText(task),
+                value: Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  children: [
+                    _dueText(task),
+                    if (detail?.pendingExtension case final pending?) ...[
+                      _PendingPill('${shortDate(pending, today)} pending'),
+                    ],
+                  ],
+                ),
               ),
               // Only a workspace's own top-level tasks repeat (arcbyte decision 0009).
               if (detail?.tab.kind == TabKind.division && task.parentId == null)
@@ -375,6 +388,7 @@ class TaskDetailView extends StatelessWidget {
             onProofList: detail != null && detail.proofs.isNotEmpty
                 ? onProofList
                 : null,
+            extensionPending: detail?.pendingExtension != null,
             onRequestExtension: detail?.canRequestExtension ?? false
                 ? onRequestExtension
                 : null,
@@ -581,6 +595,7 @@ class _QuickActions extends StatelessWidget {
     this.onActivity,
     this.onProofList,
     this.onRequestExtension,
+    this.extensionPending = false,
     this.onEdit,
     this.editing = false,
     this.onArchive,
@@ -593,6 +608,9 @@ class _QuickActions extends StatelessWidget {
   final VoidCallback? onActivity;
   final VoidCallback? onProofList;
   final VoidCallback? onRequestExtension;
+
+  /// A request is waiting for a decision: the button stays, greyed out.
+  final bool extensionPending;
   final VoidCallback? onArchive;
 
   @override
@@ -602,24 +620,35 @@ class _QuickActions extends StatelessWidget {
       String tooltip,
       VoidCallback? onTap, {
       bool active = false,
+      bool destructive = false,
+      bool disabled = false,
     }) {
       if (onTap == null) return const SizedBox.shrink();
+      final filled = active || destructive;
       return Tooltip(
         message: tooltip,
         child: InkWell(
-          onTap: onTap,
+          onTap: disabled ? null : onTap,
           customBorder: const CircleBorder(),
           child: Container(
             width: 45,
             height: 45,
             decoration: BoxDecoration(
-              color: active ? const Color(0xFF2563EB) : const Color(0xFFF7F9FA),
+              color: destructive
+                  ? const Color(0xFFEF4444)
+                  : active
+                  ? const Color(0xFF2563EB)
+                  : const Color(0xFFF7F9FA),
               shape: BoxShape.circle,
             ),
             child: Icon(
               icon,
               size: 20,
-              color: active ? Colors.white : AppColors.mutedForeground,
+              color: disabled
+                  ? AppColors.placeholder
+                  : filled
+                  ? Colors.white
+                  : AppColors.mutedForeground,
             ),
           ),
         ),
@@ -629,9 +658,19 @@ class _QuickActions extends StatelessWidget {
     final buttons = [
       button(Icons.history, 'History', onActivity),
       button(Icons.upload_file_outlined, 'Submitted proofs', onProofList),
-      button(Icons.update, 'Request extension', onRequestExtension),
+      button(
+        Icons.update,
+        extensionPending ? 'Extension pending' : 'Request extension',
+        onRequestExtension,
+        disabled: extensionPending,
+      ),
       button(Icons.edit_outlined, 'Edit', onEdit, active: editing),
-      button(Icons.delete_outline, 'Archive task', onArchive),
+      button(
+        Icons.delete_outline,
+        'Archive task',
+        onArchive,
+        destructive: true,
+      ),
     ];
     if (onActivity == null &&
         onProofList == null &&
@@ -1190,3 +1229,77 @@ class _ActionBar extends StatelessWidget {
     );
   }
 }
+
+/// The grey "Oct 10 pending" pill by the due date (hifi H13).
+class _PendingPill extends StatelessWidget {
+  const _PendingPill(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+    decoration: BoxDecoration(
+      color: const Color(0xFFF3F4F6),
+      borderRadius: BorderRadius.circular(10),
+    ),
+    child: Text(
+      text,
+      style: const TextStyle(fontSize: 12, color: AppColors.mutedForeground),
+    ),
+  );
+}
+
+/// The "Archive this task?" sheet; true on confirm.
+Future<bool> _confirmArchive(BuildContext context) =>
+    showModalBottomSheet<bool>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: AppColors.background,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Archive this task?',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'It leaves every list. This cannot be undone from the app.',
+                style: TextStyle(
+                  fontSize: 15,
+                  color: AppColors.mutedForeground,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.destructive,
+                      ),
+                      child: const Text('Archive'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    ).then((v) => v ?? false);

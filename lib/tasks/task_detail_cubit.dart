@@ -147,8 +147,12 @@ class TaskDetailCubit extends Cubit<TaskDetailState> {
     );
   }
 
-  Future<void> requestExtension(DateTime newDue, String reason) =>
-      _api.requestExtension(state.task, newDue, reason);
+  Future<void> requestExtension(DateTime newDue, String reason) async {
+    await _api.requestExtension(state.task, newDue, reason);
+    await load();
+  }
+
+  Future<void> archive() => _api.archiveTask(state.task);
 
   /// Throws [ProofRequired] like the list's checkbox.
   Future<void> tickSubtask(Task sub, {String? proofUrl}) async {

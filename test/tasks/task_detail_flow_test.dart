@@ -271,6 +271,42 @@ void main() {
     expect(api.extensionRequests.single.$2, DateTime(2026, 10, 12));
     expect(find.text('extension requested'), findsOneWidget);
     await tester.pump(const Duration(seconds: 3));
+    // the date shows as pending and the button stays but is greyed out
+    expect(find.text('Oct 12 pending'), findsOneWidget);
+    await tester.tap(find.byTooltip('Extension pending'));
+    await tester.pumpAndSettle();
+    expect(find.text('pick a date'), findsNothing);
+    expect(api.extensionRequests, hasLength(1));
+  });
+
+  testWidgets('the creator archives from the quick actions after a confirm', (
+    tester,
+  ) async {
+    await open(
+      tester,
+      'tech',
+      'Renew SSL certificate',
+      seed: (api) => api.createTask(
+        FakeTasksApi.tech,
+        name: 'Renew SSL certificate',
+        priority: Priority.high,
+        assigneeId: 1,
+      ),
+    );
+    await tester.tap(find.byTooltip('Archive task'));
+    await tester.pumpAndSettle();
+    expect(find.text('Archive this task?'), findsOneWidget);
+
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(api.archived, isEmpty);
+
+    await tester.tap(find.byTooltip('Archive task'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Archive'));
+    await tester.pumpAndSettle();
+    expect(api.archived, hasLength(1));
+    expect(find.text('Renew SSL certificate'), findsNothing);
   });
 }
 

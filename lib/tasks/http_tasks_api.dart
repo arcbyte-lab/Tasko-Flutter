@@ -159,6 +159,7 @@ class HttpTasksApi implements TasksApi {
       assignee: json['assignee'] == null ? null : _user(json['assignee']),
       proof: proof == null ? null : toProof(proof),
       proofs: [for (final p in json['proofs'] ?? const []) toProof(p)],
+      pendingExtension: _time(json['pendingExtension']),
       canReview: json['canReview'] as bool,
       canArchive: json['canArchive'] as bool,
       canRequestExtension: json['canRequestExtension'] as bool,
@@ -188,6 +189,10 @@ class HttpTasksApi implements TasksApi {
       'reason': ?reason,
     }),
   );
+
+  @override
+  Future<void> archiveTask(Task task) =>
+      _send('POST', '/tasks/${task.id}/archive', {});
 
   @override
   Future<void> requestExtension(Task task, DateTime newDue, String reason) =>

@@ -270,6 +270,7 @@ class TaskDetail {
     this.assignee,
     this.proof,
     this.proofs = const [],
+    this.pendingExtension,
     this.canReview = false,
     this.canArchive = false,
     this.canRequestExtension = false,
@@ -288,6 +289,9 @@ class TaskDetail {
 
   /// Every proof, newest first (the first is [proof]).
   final List<Proof> proofs;
+
+  /// The due date an assignee asked for and nobody has decided on yet.
+  final DateTime? pendingExtension;
 
   /// The viewer is the project's person-in-charge or author, or the
   /// division's admin or supervisor.
