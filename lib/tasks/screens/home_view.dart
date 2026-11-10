@@ -100,7 +100,6 @@ class HomeView extends StatelessWidget {
     final completed = page.completed;
     final day = page.selectedDay;
 
-    final mine = page.activeTab?.kind == TabKind.myTasks;
     // A personal task is the viewer's; a team task's assignee is a member.
     final byId = {for (final m in page.members) m.user.id: m.user};
     Widget row(Task t) {
@@ -109,7 +108,8 @@ class HomeView extends StatelessWidget {
         task: t,
         assignee: assignee,
         mine: assignee != null && assignee.id == page.user?.id,
-        tabName: mine ? page.tabOf(t)?.name : null,
+        // After the code, on every list: tech, tasko-web, ops-site, private.
+        tabName: page.tabOf(t)?.name,
         now: page.today,
         onTap: () => onOpen(t),
       );

@@ -106,8 +106,10 @@ void main() {
     tester,
   ) async {
     await pump(tester, tab: 'my tasks');
-    expect(find.textContaining('· tasko-web'), findsWidgets);
-    expect(find.textContaining('· private'), findsWidgets);
+    // after the code: TW-0042 · tasko-web; a personal task has
+    // no code, so its row says just private
+    expect(find.textContaining(' · tasko-web'), findsWidgets);
+    expect(find.text('private'), findsWidgets);
     for (final tip in ['Members', 'Repeating', 'Activity']) {
       expect(find.byTooltip(tip), findsNothing);
     }
@@ -125,7 +127,14 @@ void main() {
     expect(cubit.state.workspaceOpen, isTrue);
     expect(find.text('MY WORKSPACE'), findsOneWidget);
     expect(find.text('my tasks'), findsOneWidget);
-    expect(find.text('private'), findsOneWidget); // only here, not on home
+    // only here, not on home (rows of personal tasks say private too)
+    expect(
+      find.descendant(
+        of: find.byType(TabStrip),
+        matching: find.text('private'),
+      ),
+      findsOneWidget,
+    );
     expect(find.byTooltip('New task'), findsOneWidget);
     expect(find.byTooltip('Media'), findsNothing); // navigations stay home
     expect(find.text('HOME'), findsNothing);

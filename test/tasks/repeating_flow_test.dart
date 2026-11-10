@@ -6,6 +6,7 @@ import 'package:tasko/tasks/home_cubit.dart';
 import 'package:tasko/tasks/models.dart';
 import 'package:tasko/tasks/screens/home_panel.dart';
 import 'package:tasko/tasks/tasks_api.dart';
+import 'package:tasko/tasks/widgets/tab_strip.dart';
 
 /// The repeating view (arcbyte decision 0012). Mira is tech's supervisor
 /// in the fake, so she leads it.
@@ -38,9 +39,14 @@ void main() {
   }
 
   Future<void> tab(WidgetTester tester, String name) async {
-    await tester.ensureVisible(find.text(name));
+    // the tab bar's, not a row's scope text
+    final tab = find.descendant(
+      of: find.byType(TabStrip),
+      matching: find.text(name),
+    );
+    await tester.ensureVisible(tab);
     await tester.pumpAndSettle();
-    await tester.tap(find.text(name));
+    await tester.tap(tab);
     await tester.pumpAndSettle();
   }
 
