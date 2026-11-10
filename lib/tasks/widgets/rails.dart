@@ -44,63 +44,58 @@ class Rails extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     void soon(String name) => showToast(context, '$name is not available yet');
-    return ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: Container(
-          height: 100,
-          // On My Workspace, the one dark screen, the dock is black, not white.
-          color: (AppPalette.of(context).isDark ? Colors.black : Colors.white)
-              .withValues(alpha: 0.5),
-          padding: const EdgeInsets.fromLTRB(10, 10, 10, 0),
-          alignment: Alignment.topCenter,
-          child: Row(
-            children: [
-              if (!navigations)
-                const Spacer(flex: 3)
-              else
-                Flexible(
-                  flex: 3,
-                  child: _Rail([
-                    _Item(
-                      Icons.home_outlined,
-                      'Home',
-                      active: active == RailsItem.home,
-                      onTap: onHome,
-                      width: 76,
-                    ),
-                    _Item(
-                      Icons.view_in_ar_outlined,
-                      'Media',
-                      onTap: () => soon('Media'),
-                      width: 76,
-                    ),
-                    _Item(
-                      Icons.chat_bubble_outline,
-                      'Discussion',
-                      active: active == RailsItem.discussion,
-                      onTap: onDiscussion,
-                      badge: discussionBadge,
-                      width: 76,
-                    ),
-                  ]),
+    // The dock only places the rails, 100 tall: no fill and no blur. Each rail
+    // is its own floating pill with the blur (hifi H13, the pen's
+    // `hifi / Rails / Dock` has none); the list scrolls under and between them.
+    return Container(
+      height: 100,
+      padding: const EdgeInsets.fromLTRB(10, 10, 10, 0),
+      alignment: Alignment.topCenter,
+      child: Row(
+        children: [
+          if (!navigations)
+            const Spacer(flex: 3)
+          else
+            Flexible(
+              flex: 3,
+              child: _Rail([
+                _Item(
+                  Icons.home_outlined,
+                  'Home',
+                  active: active == RailsItem.home,
+                  onTap: onHome,
+                  width: 76,
                 ),
-              const SizedBox(width: 9),
-              Flexible(
-                flex: 2,
-                child: _Rail([
-                  if (onNewProject != null)
-                    _Item(
-                      Icons.dashboard_customize_outlined,
-                      'New project',
-                      onTap: onNewProject,
-                    ),
-                  _Item(Icons.note_add_outlined, 'New task', onTap: onNewTask),
-                ]),
-              ),
-            ],
+                _Item(
+                  Icons.view_in_ar_outlined,
+                  'Media',
+                  onTap: () => soon('Media'),
+                  width: 76,
+                ),
+                _Item(
+                  Icons.chat_bubble_outline,
+                  'Discussion',
+                  active: active == RailsItem.discussion,
+                  onTap: onDiscussion,
+                  badge: discussionBadge,
+                  width: 76,
+                ),
+              ]),
+            ),
+          const SizedBox(width: 9),
+          Flexible(
+            flex: 2,
+            child: _Rail([
+              if (onNewProject != null)
+                _Item(
+                  Icons.dashboard_customize_outlined,
+                  'New project',
+                  onTap: onNewProject,
+                ),
+              _Item(Icons.note_add_outlined, 'New task', onTap: onNewTask),
+            ]),
           ),
-        ),
+        ],
       ),
     );
   }
