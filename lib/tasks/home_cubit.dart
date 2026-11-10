@@ -22,6 +22,8 @@ class HomeState {
     this.membersByTab = const {},
     this.calendarExpanded = false,
     this.monthOpen = true,
+    this.workspaceOpen = false,
+    this.homeTab,
   });
 
   /// Midnight of the current day; the cubit reads the clock once per load.
@@ -37,6 +39,22 @@ class HomeState {
   final User? user;
   final List<TaskTab> tabs;
   final TaskTab? activeTab;
+
+  /// What the home tab bar shows: everything but "my tasks", which lives on
+  /// My Workspace (hifi H13; this moves 0017's first tab off home).
+  List<TaskTab> get homeTabs =>
+      tabs.where((t) => t.kind != TabKind.myTasks).toList();
+
+  /// My Workspace's tab bar: "my tasks" and "private".
+  List<TaskTab> get workspaceTabs => tabs
+      .where((t) => t.kind == TabKind.myTasks || t.kind == TabKind.private)
+      .toList();
+
+  /// My Workspace is pulled down over home.
+  final bool workspaceOpen;
+
+  /// The home tab that was open when My Workspace was pulled down.
+  final TaskTab? homeTab;
 
   /// Every tab's tasks, unfiltered, so the pages beside the current one are
   /// ready while a swipe drags them into view.
@@ -171,6 +189,8 @@ class HomeState {
     Map<TaskTab, List<Member>>? membersByTab,
     bool? calendarExpanded,
     bool? monthOpen,
+    bool? workspaceOpen,
+    TaskTab? homeTab,
   }) => HomeState(
     today: today,
     month: month ?? this.month,
@@ -187,6 +207,8 @@ class HomeState {
     membersByTab: membersByTab ?? this.membersByTab,
     calendarExpanded: calendarExpanded ?? this.calendarExpanded,
     monthOpen: monthOpen ?? this.monthOpen,
+    workspaceOpen: workspaceOpen ?? this.workspaceOpen,
+    homeTab: homeTab ?? this.homeTab,
   );
 }
 
@@ -205,8 +227,9 @@ class HomeCubit extends Cubit<HomeState> {
   /// Loads every tab at once, so a swipe never waits on the network.
   // ponytail: one request per tab on load; fine for a handful of tabs, page
   // them in lazily if users end up in dozens of projects.
-  /// "my tasks" comes first and opens (decision 0017); it has no tasks or
-  /// members of its own.
+  /// "my tasks" comes first in [HomeState.tabs] but lives on My Workspace
+  /// (hifi H13); home opens on its first tab. It has no tasks or members of
+  /// its own.
   Future<void> load() async {
     final user = await _api.me();
     final tabs = await _api.myTabs();
@@ -216,7 +239,7 @@ class HomeCubit extends Cubit<HomeState> {
       state.copyWith(
         user: user,
         tabs: [TaskTab.myTasks, ...tabs],
-        activeTab: TaskTab.myTasks,
+        activeTab: tabs.firstOrNull ?? TaskTab.myTasks,
         tasksByTab: Map.fromIterables(tabs, tasks),
         membersByTab: Map.fromIterables(tabs, members),
         unread: await _unread(),
@@ -235,6 +258,28 @@ class HomeCubit extends Cubit<HomeState> {
       ),
     );
     await selectTab(tab);
+  }
+
+  /// Pulls My Workspace down over home; it opens on "my tasks".
+  void openWorkspace() => emit(
+    state
+        .pageFor(TaskTab.myTasks)
+        .copyWith(
+          workspaceOpen: true,
+          homeTab: state.activeTab?.kind == TabKind.myTasks
+              ? null
+              : state.activeTab,
+        ),
+  );
+
+  /// Back to home; "my tasks" is not a home tab, so the first one shows.
+  void closeWorkspace() {
+    final next = state.activeTab?.kind == TabKind.myTasks
+        ? state.pageFor(
+            state.homeTab ?? state.homeTabs.firstOrNull ?? TaskTab.myTasks,
+          )
+        : state;
+    emit(next.copyWith(workspaceOpen: false));
   }
 
   /// Switches at once from what is loaded, then refreshes that tab.
@@ -265,7 +310,7 @@ class HomeCubit extends Cubit<HomeState> {
     );
     final active = next.tabs.firstWhere(
       (t) => t == state.activeTab,
-      orElse: () => TaskTab.myTasks,
+      orElse: () => next.homeTabs.firstOrNull ?? TaskTab.myTasks,
     );
     // Same tab: take the fresh object, which carries the viewer's new role.
     emit(

@@ -15,6 +15,7 @@ import 'home_view.dart';
 import 'members_screen.dart';
 import 'repeating_screen.dart';
 import 'series_screen.dart';
+import '../widgets/workspace_pull.dart';
 import 'new_project_sheet.dart';
 import 'task_detail_sheet.dart';
 
@@ -28,138 +29,153 @@ class HomePanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final cubit = context.read<HomeCubit>();
     return BlocBuilder<HomeCubit, HomeState>(
-      builder: (context, state) => HomeView(
-        state: state,
-        onSelectTab: cubit.selectTab,
-        onDayTap: cubit.selectDay,
-        onClearDay: cubit.clearDay,
-        onMonthChange: cubit.changeMonth,
-        onWeekChange: cubit.changeWeek,
-        onToday: cubit.goToToday,
-        onOpenMonth: cubit.openMonth,
-        onFoldToWeek: cubit.foldToWeek,
-        onToggleCompleted: cubit.toggleCompleted,
-        onTick: (task) async {
-          try {
-            await cubit.tick(task);
-          } on ProofRequired {
-            if (!context.mounted) return;
-            final link = await showProofSheet(context);
-            if (link != null) await cubit.tick(task, proofUrl: link);
-          }
-        },
-        onCreate: () async {
-          // "my tasks" isn't a place: start in private and let the user
-          // pick the tab (decision 0017).
-          final mine = state.activeTab!.kind == TabKind.myTasks;
-          final task = await showCreateTaskSheet(
-            context,
-            api: context.read<TasksApi>(),
-            tab: mine ? TaskTab.private : state.activeTab!,
-            tabs: mine
-                ? state.tabs.where((t) => t.kind != TabKind.myTasks).toList()
-                : null,
-            today: state.today,
-          );
-          if (task != null) await cubit.reload();
-        },
-        onToggleCalendar: cubit.toggleCalendar,
-        // No account screen exists yet (arcbyte lofi T12 pattern).
-        onAccountSettings: () => showToast(context, 'action: account settings'),
-        onNewProject: state.tabs.any(canCreateProject)
-            ? () async {
-                final tab = await showNewProjectSheet(
-                  context,
-                  api: context.read<TasksApi>(),
-                  divisions: state.tabs.where(canCreateProject).toList(),
-                  today: state.today,
-                );
-                if (tab != null) await cubit.addTab(tab);
-              }
-            : null,
-        onLogOut: onLogOut,
-        onStartSearch: cubit.startSearch,
-        onMembers: state.activeTab?.kind == TabKind.project
-            ? () async {
-                await openMembers(
-                  context,
-                  tab: state.activeTab!,
-                  meId: state.user!.id,
-                );
-                // Joined, left or re-roled: the tabs and roles may differ.
-                await cubit.reloadTabs();
-              }
-            : null,
-        onRepeating: canManageRepeats(state.activeTab ?? TaskTab.private)
-            ? () async {
-                // Pushed routes sit above the provider: hand the api down.
-                final api = context.read<TasksApi>();
-                await openRepeating(
-                  context,
-                  tab: state.activeTab!,
-                  members: state.members,
-                  today: state.today,
-                  onNew: (context) => showCreateTaskSheet(
-                    context,
-                    api: api,
-                    tab: state.activeTab!,
-                    today: state.today,
-                  ),
-                  onOpen: (context, series) => openSeries(
-                    context,
-                    api: api,
-                    series: series,
-                    members: state.members,
-                    today: state.today,
-                  ),
-                );
-                await cubit.reload();
-              }
-            : null,
-        onActivity: switch (state.activeTab) {
-          final tab? when canViewDivisionLog(tab) || canViewProjectLog(tab) =>
-            () => openActivity(
+      builder: (context, state) {
+        HomeView view({
+          bool workspace = false,
+          Widget Function(Widget)? wrapCalendar,
+        }) => HomeView(
+          workspace: workspace,
+          wrapCalendar: wrapCalendar,
+          state: state,
+          onSelectTab: cubit.selectTab,
+          onDayTap: cubit.selectDay,
+          onClearDay: cubit.clearDay,
+          onMonthChange: cubit.changeMonth,
+          onWeekChange: cubit.changeWeek,
+          onToday: cubit.goToToday,
+          onOpenMonth: cubit.openMonth,
+          onFoldToWeek: cubit.foldToWeek,
+          onToggleCompleted: cubit.toggleCompleted,
+          onTick: (task) async {
+            try {
+              await cubit.tick(task);
+            } on ProofRequired {
+              if (!context.mounted) return;
+              final link = await showProofSheet(context);
+              if (link != null) await cubit.tick(task, proofUrl: link);
+            }
+          },
+          onCreate: () async {
+            // "my tasks" isn't a place: start in private and let the user
+            // pick the tab (decision 0017).
+            final mine = state.activeTab!.kind == TabKind.myTasks;
+            final task = await showCreateTaskSheet(
               context,
               api: context.read<TasksApi>(),
-              scope: TabLog(tab),
+              tab: mine ? TaskTab.private : state.activeTab!,
+              tabs: mine
+                  ? state.tabs.where((t) => t.kind != TabKind.myTasks).toList()
+                  : null,
               today: state.today,
-            ),
-          _ => null,
-        },
-        onMyActivity: () => openActivity(
-          context,
-          api: context.read<TasksApi>(),
-          scope: UserLog(state.user!),
-          today: state.today,
-        ),
-        onSearch: cubit.search,
-        onStopSearch: cubit.stopSearch,
-        onViewOptions: () async {
-          final v = await showViewOptionsSheet(
-            context,
-            current: state.view,
-            personal: state.activeTab?.kind == TabKind.private,
-            members: state.members,
-            meId: state.user!.id,
-          );
-          if (v != null) cubit.setView(v);
-        },
-        onNotifications: () async {
-          await openNotifications(context);
-          // Someone may have added the viewer to a project (decision 0010).
-          await cubit.reloadTabs();
-          await cubit.reload();
-        },
-        onOpen: (task) async {
-          await showTaskDetailSheet(
+            );
+            if (task != null) await cubit.reload();
+          },
+          onToggleCalendar: cubit.toggleCalendar,
+          // No account screen exists yet (arcbyte lofi T12 pattern).
+          onAccountSettings: () =>
+              showToast(context, 'action: account settings'),
+          onNewProject: state.tabs.any(canCreateProject)
+              ? () async {
+                  final tab = await showNewProjectSheet(
+                    context,
+                    api: context.read<TasksApi>(),
+                    divisions: state.tabs.where(canCreateProject).toList(),
+                    today: state.today,
+                  );
+                  if (tab != null) await cubit.addTab(tab);
+                }
+              : null,
+          onLogOut: onLogOut,
+          onStartSearch: cubit.startSearch,
+          onMembers: state.activeTab?.kind == TabKind.project
+              ? () async {
+                  await openMembers(
+                    context,
+                    tab: state.activeTab!,
+                    meId: state.user!.id,
+                  );
+                  // Joined, left or re-roled: the tabs and roles may differ.
+                  await cubit.reloadTabs();
+                }
+              : null,
+          onRepeating: canManageRepeats(state.activeTab ?? TaskTab.private)
+              ? () async {
+                  // Pushed routes sit above the provider: hand the api down.
+                  final api = context.read<TasksApi>();
+                  await openRepeating(
+                    context,
+                    tab: state.activeTab!,
+                    members: state.members,
+                    today: state.today,
+                    onNew: (context) => showCreateTaskSheet(
+                      context,
+                      api: api,
+                      tab: state.activeTab!,
+                      today: state.today,
+                    ),
+                    onOpen: (context, series) => openSeries(
+                      context,
+                      api: api,
+                      series: series,
+                      members: state.members,
+                      today: state.today,
+                    ),
+                  );
+                  await cubit.reload();
+                }
+              : null,
+          onActivity: switch (state.activeTab) {
+            final tab? when canViewDivisionLog(tab) || canViewProjectLog(tab) =>
+              () => openActivity(
+                context,
+                api: context.read<TasksApi>(),
+                scope: TabLog(tab),
+                today: state.today,
+              ),
+            _ => null,
+          },
+          onMyActivity: () => openActivity(
             context,
             api: context.read<TasksApi>(),
-            task: task,
+            scope: UserLog(state.user!),
             today: state.today,
-          );
-          await cubit.reload();
-        },
-      ),
+          ),
+          onSearch: cubit.search,
+          onStopSearch: cubit.stopSearch,
+          onViewOptions: () async {
+            final v = await showViewOptionsSheet(
+              context,
+              current: state.view,
+              personal: state.activeTab?.kind == TabKind.private,
+              members: state.members,
+              meId: state.user!.id,
+            );
+            if (v != null) cubit.setView(v);
+          },
+          onNotifications: () async {
+            await openNotifications(context);
+            // Someone may have added the viewer to a project (decision 0010).
+            await cubit.reloadTabs();
+            await cubit.reload();
+          },
+          onOpen: (task) async {
+            await showTaskDetailSheet(
+              context,
+              api: context.read<TasksApi>(),
+              task: task,
+              today: state.today,
+            );
+            await cubit.reload();
+          },
+        );
+        return WorkspacePull(
+          open: state.workspaceOpen,
+          onChanged: (open) =>
+              open ? cubit.openWorkspace() : cubit.closeWorkspace(),
+          workspace: view(workspace: true),
+          home: (pull) => view(wrapCalendar: pull),
+        );
+      },
     );
   }
 }
