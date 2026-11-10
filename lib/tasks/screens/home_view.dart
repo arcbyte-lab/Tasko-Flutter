@@ -116,6 +116,10 @@ class HomeView extends StatelessWidget {
     }
 
     return ListView(
+      // A ListView otherwise pads itself by the screen's insets: the status bar
+      // on top (a blank gap under the toolbar) and the rails below, which the
+      // trailing SizedBox already leaves room for.
+      padding: EdgeInsets.zero,
       // Each tab keeps its own scroll position across swipes.
       key: PageStorageKey(page.activeTab),
       children: [
