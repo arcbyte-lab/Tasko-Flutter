@@ -50,16 +50,11 @@ void main() {
     (tester) async {
       await home(tester);
       final shown = <String, bool>{};
-      for (final tab in ['private', 'tech', 'tasko-app', 'tasko-web']) {
+      for (final tab in ['tech', 'tasko-app', 'tasko-web']) {
         await tap(tester, find.text(tab));
         shown[tab] = activity.evaluate().isNotEmpty;
       }
-      expect(shown, {
-        'private': false,
-        'tech': true,
-        'tasko-app': false,
-        'tasko-web': true,
-      });
+      expect(shown, {'tech': true, 'tasko-app': false, 'tasko-web': true});
     },
   );
 

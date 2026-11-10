@@ -28,9 +28,11 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    if (tab == 'my tasks') {
-      // Not a home tab: pulled down as My Workspace, which has the actions.
+    if (tab == 'my tasks' || tab == 'private') {
+      // Not home tabs: they live on My Workspace, which has the actions.
       cubit.openWorkspace();
+      await tester.pumpAndSettle();
+      if (tab == 'private') await tester.tap(find.text('private'));
     } else {
       await tester.ensureVisible(find.text(tab));
       await tester.pumpAndSettle();

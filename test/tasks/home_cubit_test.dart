@@ -16,8 +16,8 @@ void main() {
   Task named(String name) =>
       cubit.state.tasks.firstWhere((t) => t.name == name);
 
-  test('loads my tasks first in the list but home opens on private; '
-      'My Workspace opens on my tasks (0017, H13)', () {
+  test('loads my tasks first in the list but home opens on tech; '
+      'My Workspace opens on my tasks (0020)', () {
     expect(cubit.state.tabs.map((t) => t.name), [
       'my tasks',
       'private',
@@ -25,8 +25,12 @@ void main() {
       'tasko-app',
       'tasko-web',
     ]);
-    expect(cubit.state.activeTab, TaskTab.private);
-    expect(cubit.state.homeTabs, isNot(contains(TaskTab.myTasks)));
+    expect(cubit.state.activeTab, FakeTasksApi.tech);
+    expect(cubit.state.homeTabs, [
+      FakeTasksApi.tech,
+      FakeTasksApi.taskoApp,
+      FakeTasksApi.taskoWeb,
+    ]);
     expect(cubit.state.workspaceTabs, [TaskTab.myTasks, TaskTab.private]);
     expect(cubit.state.tasksByTab.keys, isNot(contains(TaskTab.myTasks)));
     cubit.openWorkspace();
@@ -34,7 +38,7 @@ void main() {
     expect(cubit.state.activeTab, TaskTab.myTasks);
     cubit.closeWorkspace();
     expect(cubit.state.workspaceOpen, isFalse);
-    expect(cubit.state.activeTab, TaskTab.private);
+    expect(cubit.state.activeTab, FakeTasksApi.tech);
   });
 
   test('my tasks: personal, assigned to me, and my reviews (0017)', () async {
@@ -205,6 +209,7 @@ void main() {
   );
 
   test('the change survives switching tabs (the API kept it)', () async {
+    await cubit.selectTab(TaskTab.private);
     await cubit.tick(named('Renew passport'));
     await cubit.selectTab(FakeTasksApi.tech);
     await cubit.selectTab(TaskTab.private);

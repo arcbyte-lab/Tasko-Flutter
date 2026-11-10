@@ -40,10 +40,18 @@ class HomeState {
   final List<TaskTab> tabs;
   final TaskTab? activeTab;
 
-  /// What the home tab bar shows: everything but "my tasks", which lives on
-  /// My Workspace (hifi H13; this moves 0017's first tab off home).
-  List<TaskTab> get homeTabs =>
-      tabs.where((t) => t.kind != TabKind.myTasks).toList();
+  /// What the home tab bar shows: the divisions and projects. "my tasks" and
+  /// "private" live on My Workspace only (decision 0020).
+  // ponytail: a user with no division or project would get an empty bar, so
+  // "private" stays on home for them; drop it if every user has a division.
+  List<TaskTab> get homeTabs {
+    final shared = tabs
+        .where((t) => t.kind == TabKind.division || t.kind == TabKind.project)
+        .toList();
+    return shared.isEmpty
+        ? tabs.where((t) => t.kind == TabKind.private).toList()
+        : shared;
+  }
 
   /// My Workspace's tab bar: "my tasks" and "private".
   List<TaskTab> get workspaceTabs => tabs
@@ -235,14 +243,16 @@ class HomeCubit extends Cubit<HomeState> {
     final tabs = await _api.myTabs();
     final tasks = await Future.wait(tabs.map(_api.tasksFor));
     final members = await Future.wait(tabs.map(_api.membersOf));
+    final loaded = state.copyWith(
+      user: user,
+      tabs: [TaskTab.myTasks, ...tabs],
+      tasksByTab: Map.fromIterables(tabs, tasks),
+      membersByTab: Map.fromIterables(tabs, members),
+      unread: await _unread(),
+    );
     emit(
-      state.copyWith(
-        user: user,
-        tabs: [TaskTab.myTasks, ...tabs],
-        activeTab: tabs.firstOrNull ?? TaskTab.myTasks,
-        tasksByTab: Map.fromIterables(tabs, tasks),
-        membersByTab: Map.fromIterables(tabs, members),
-        unread: await _unread(),
+      loaded.copyWith(
+        activeTab: loaded.homeTabs.firstOrNull ?? TaskTab.myTasks,
       ),
     );
   }

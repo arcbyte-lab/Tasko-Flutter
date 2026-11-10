@@ -131,7 +131,7 @@ void main() {
     expect(cubit.state.workspaceOpen, isTrue);
     expect(find.text('MY WORKSPACE'), findsOneWidget);
     expect(find.text('my tasks'), findsOneWidget);
-    expect(find.text('private'), findsOneWidget);
+    expect(find.text('private'), findsOneWidget); // only here, not on home
     expect(find.byTooltip('New task'), findsOneWidget);
     expect(find.byTooltip('Media'), findsNothing); // navigations stay home
     expect(find.text('HOME'), findsNothing);
@@ -352,11 +352,10 @@ void main() {
     });
 
     testWidgets('stops at both ends', (tester) async {
-      await startOn(tester, 'private');
-      await fling(tester, 300); // private is the first on home
-      expect(find.text('Pay internet bill'), findsOneWidget); // private's, mine
+      await startOn(tester, 'tech');
+      await fling(tester, 300); // tech is the first on home
+      expect(find.text('no tasks here'), findsOneWidget);
 
-      await fling(tester, -300); // tech
       await fling(tester, -300); // tasko-app
       await fling(tester, -300); // tasko-web, the last
       await fling(tester, -300);
