@@ -95,18 +95,20 @@ Map<int, int> dueCounts(Iterable<Task> tasks, DateTime month) =>
 /// of task due that day, in this order clockwise from the top.
 enum DayMark { overdue, open, review, done }
 
-/// The kinds of task due on [day], for its ring: done, in review, overdue
-/// (open and before [today]) or open.
+/// The kind of [task] due on [day]: done, in review, overdue (open and
+/// before [today]) or open. It colours the task's ring arc and its title.
+DayMark markOf(Task task, DateTime day, DateTime today) =>
+    task.status == TaskStatus.done
+    ? DayMark.done
+    : task.status == TaskStatus.review
+    ? DayMark.review
+    : day.isBefore(today)
+    ? DayMark.overdue
+    : DayMark.open;
+
+/// The kinds of task due on [day], for its ring.
 Set<DayMark> dayMarks(Iterable<Task> due, DateTime day, DateTime today) => {
-  for (final t in due)
-    if (t.status == TaskStatus.done)
-      DayMark.done
-    else if (t.status == TaskStatus.review)
-      DayMark.review
-    else if (day.isBefore(today))
-      DayMark.overdue
-    else
-      DayMark.open,
+  for (final t in due) markOf(t, day, today),
 };
 
 /// Dots under a calendar day: 1 for 1 open task, 2 for 2–3, 3 for 4 or more

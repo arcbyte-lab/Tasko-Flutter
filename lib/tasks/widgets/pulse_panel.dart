@@ -139,7 +139,9 @@ class PulsePanel extends StatelessWidget {
           : _Day(
               date: d,
               tasks: dueOn[d] ?? const [],
+              all: taskDays[d] ?? const [],
               marks: dayMarks(taskDays[d] ?? const [], d, today),
+              today: today,
               overdue: d.isBefore(today),
               isToday: isSameDay(d, today),
               selected: selectedDay != null && isSameDay(d, selectedDay!),
@@ -150,12 +152,6 @@ class PulsePanel extends StatelessWidget {
     Widget row(List<DateTime?> w) => Container(
       height: expanded ? null : _rowHeight,
       padding: EdgeInsets.symmetric(horizontal: expanded ? 4 : 8),
-      // The full-screen grid keeps its lines; the month and week have none.
-      decoration: expanded
-          ? const BoxDecoration(
-              border: Border(top: BorderSide(color: AppColors.border)),
-            )
-          : null,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [for (final d in w) cell(d)],
@@ -180,13 +176,14 @@ class PulsePanel extends StatelessWidget {
       onChange: strip ? onWeekChange : onMonthChange,
     );
 
-    return Container(
+    final panel = Container(
       color: AppColors.muted,
       padding: const EdgeInsets.only(bottom: 4),
       child: Column(
         mainAxisSize: expanded ? MainAxisSize.max : MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (expanded) const _TopGrabber(),
           _Header(
             month: month,
             expanded: expanded,
@@ -208,7 +205,40 @@ class PulsePanel extends StatelessWidget {
         ],
       ),
     );
+    // Full screen: 16px rounded top corners over the black bar (hifi H12).
+    return expanded
+        ? ColoredBox(
+            color: Colors.black,
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(16),
+              ),
+              child: panel,
+            ),
+          )
+        : panel;
   }
+}
+
+/// The 36×4 grabber at the top of the full-screen panel. It only decorates:
+/// the corner icon closes the view.
+class _TopGrabber extends StatelessWidget {
+  const _TopGrabber();
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(top: 8),
+    child: Center(
+      child: Container(
+        width: 36,
+        height: 4,
+        decoration: BoxDecoration(
+          color: AppColors.controlBorder,
+          borderRadius: BorderRadius.circular(2),
+        ),
+      ),
+    ),
+  );
 }
 
 typedef _Page = ({bool strip, DateTime start});
@@ -544,7 +574,9 @@ class _Day extends StatelessWidget {
   const _Day({
     required this.date,
     required this.tasks,
+    required this.all,
     required this.marks,
+    required this.today,
     required this.overdue,
     required this.isToday,
     required this.selected,
@@ -556,6 +588,10 @@ class _Day extends StatelessWidget {
 
   /// Open tasks due this day, in order.
   final List<Task> tasks;
+
+  /// Every task due this day, whatever its status: the full-screen titles.
+  final List<Task> all;
+  final DateTime today;
 
   /// The arcs of the ring: one per kind of task due this day.
   final Set<DayMark> marks;
@@ -574,16 +610,16 @@ class _Day extends StatelessWidget {
     final fill = selected
         ? AppColors.foreground
         : isToday
-        ? Colors.black
+        ? (big ? const Color(0xFF2563EB) : Colors.black)
         : null;
-    final circle = big ? 24.0 : 36.0;
+    final circle = big ? 30.0 : 36.0;
     final number = Container(
       width: circle,
       height: circle,
       alignment: Alignment.center,
       // Every day is a grey disc in the month and the week (hifi H12).
       decoration: BoxDecoration(
-        color: fill ?? (big ? null : AppColors.secondary),
+        color: fill ?? AppColors.secondary,
         shape: BoxShape.circle,
       ),
       child: Text(
@@ -608,22 +644,25 @@ class _Day extends StatelessWidget {
     if (big) {
       // Up to 3 titles, or 2 and "+N more" (0016). A short cell clips the
       // rest rather than overflowing.
-      final shown = tasks.length > 3 ? tasks.take(2) : tasks;
+      final shown = all.length > 3 ? all.take(2) : all;
       body = Padding(
         padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
         child: SingleChildScrollView(
           physics: const NeverScrollableScrollPhysics(),
           child: Column(
             children: [
-              number,
+              CustomPaint(
+                foregroundPainter: DayRingPainter(marks),
+                child: number,
+              ),
               for (final t in shown) ...[
                 const SizedBox(height: 3),
-                _Pill(title: t.name, overdue: overdue),
+                _Pill(title: t.name, mark: markOf(t, date, today)),
               ],
-              if (tasks.length > 3) ...[
+              if (all.length > 3) ...[
                 const SizedBox(height: 3),
                 Text(
-                  '+${tasks.length - 2} more',
+                  '+${all.length - 2} more',
                   style: const TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w500,
@@ -662,10 +701,18 @@ class _Day extends StatelessWidget {
 /// A task title in a full-screen day: one line, cut off with no ellipsis,
 /// as in the drawing.
 class _Pill extends StatelessWidget {
-  const _Pill({required this.title, required this.overdue});
+  const _Pill({required this.title, required this.mark});
 
   final String title;
-  final bool overdue;
+  final DayMark mark;
+
+  /// Background and text: red overdue, blue open, amber in review, green done.
+  static const _colors = {
+    DayMark.overdue: (Color(0x1FEF4444), Color(0xFFDC2626)),
+    DayMark.open: (AppColors.accent, AppColors.accentForeground),
+    DayMark.review: (Color(0xFFFEF3C7), Color(0xFF92400E)),
+    DayMark.done: (Color(0xFFDCFCE7), Color(0xFF166534)),
+  };
 
   @override
   Widget build(BuildContext context) => Container(
@@ -674,9 +721,7 @@ class _Pill extends StatelessWidget {
     padding: const EdgeInsets.symmetric(horizontal: 3),
     alignment: Alignment.centerLeft,
     decoration: BoxDecoration(
-      color: overdue
-          ? AppColors.destructive.withValues(alpha: 0.12)
-          : AppColors.accent,
+      color: _colors[mark]!.$1,
       borderRadius: BorderRadius.circular(3),
     ),
     child: Text(
@@ -688,7 +733,7 @@ class _Pill extends StatelessWidget {
         fontSize: 10,
         fontWeight: FontWeight.w500,
         height: 1.2,
-        color: overdue ? AppColors.destructive : AppColors.accentForeground,
+        color: _colors[mark]!.$2,
       ),
     ),
   );
