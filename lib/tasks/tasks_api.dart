@@ -124,7 +124,9 @@ class FakeTasksApi implements TasksApi {
   final _comments = <int, List<Comment>>{};
   final _creatorOf = <int, int>{};
   final _notifications = <AppNotification>[];
-  final _proofs = <int, Proof>{};
+
+  /// Newest first.
+  final _proofs = <int, List<Proof>>{};
 
   /// A fixed log covering every action, oldest first. The fake's own changes
   /// don't add to it.
@@ -178,10 +180,9 @@ class FakeTasksApi implements TasksApi {
     String? proofUrl,
   }) async {
     if (proofUrl != null) {
-      _proofs[task.id] = Proof(
-        url: proofUrl,
-        author: _me,
-        createdAt: DateTime.now(),
+      (_proofs[task.id] ??= []).insert(
+        0,
+        Proof(url: proofUrl, author: _me, createdAt: DateTime.now()),
       );
     }
     final done = _replace(
@@ -337,7 +338,8 @@ class FakeTasksApi implements TasksApi {
       ],
       comments: [...?_comments[task.id]],
       assignee: assignee,
-      proof: team ? _proofs[task.id] : null,
+      proof: team ? _proofs[task.id]?.first : null,
+      proofs: team ? [...?_proofs[task.id]] : const [],
       canReview: team && tab == taskoWeb,
       canArchive: team && _creatorOf[task.id] == _me.id,
       canRequestExtension: team && tab != taskoWeb && task.assigneeId == _me.id,
@@ -633,7 +635,7 @@ class FakeTasksApi implements TasksApi {
           onTime: t.status == TaskStatus.done
               ? !t.completedAt!.isAfter(t.dueDate!)
               : null,
-          proofUrl: _proofs[t.id]?.url,
+          proofUrl: _proofs[t.id]?.first.url,
         ),
     ];
   }

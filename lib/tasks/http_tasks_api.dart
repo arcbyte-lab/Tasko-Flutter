@@ -147,18 +147,18 @@ class HttpTasksApi implements TasksApi {
   Future<TaskDetail> detail(Task task) async {
     final json = await _get('${_taskPath(task)}/detail');
     final proof = json['proof'];
+    Proof toProof(Map<String, dynamic> p) => Proof(
+      url: p['url'] as String,
+      author: _user(p['author']),
+      createdAt: _time(p['createdAt'])!,
+    );
     return TaskDetail(
       tab: _tab(json['tab']),
       subtasks: [for (final t in json['subtasks']) _task(t)],
       comments: [for (final c in json['comments']) _comment(c)],
       assignee: json['assignee'] == null ? null : _user(json['assignee']),
-      proof: proof == null
-          ? null
-          : Proof(
-              url: proof['url'] as String,
-              author: _user(proof['author']),
-              createdAt: _time(proof['createdAt'])!,
-            ),
+      proof: proof == null ? null : toProof(proof),
+      proofs: [for (final p in json['proofs'] ?? const []) toProof(p)],
       canReview: json['canReview'] as bool,
       canArchive: json['canArchive'] as bool,
       canRequestExtension: json['canRequestExtension'] as bool,

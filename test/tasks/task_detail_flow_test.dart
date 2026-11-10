@@ -105,6 +105,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('https://x.dev/a.png'), findsOneWidget);
     expect(find.text('approve'), findsOneWidget); // Mira reviews tasko-web
+
+    await tester.tap(find.byTooltip('Submitted proofs'));
+    await tester.pumpAndSettle();
+    expect(find.text('Submitted proofs'), findsOneWidget);
+    expect(find.text('Latest'), findsOneWidget);
   });
 
   testWidgets('a member who is not a lead sees the rule but cannot change it', (

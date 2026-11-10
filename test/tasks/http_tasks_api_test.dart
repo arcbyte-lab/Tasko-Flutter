@@ -386,6 +386,37 @@ void main() {
       expect((await api().detail(_task)).canViewLog, isFalse);
     },
   );
+  test(
+    'Task Detail reads every proof, none when the server has no list',
+    () async {
+      Map<String, Object?> proof(String url) => {
+        'url': url,
+        'author': {'id': 1, 'name': 'Mira'},
+        'createdAt': '2026-10-09T10:00:00Z',
+      };
+      final base = {
+        'tab': {'kind': 'project', 'id': 1, 'name': 'tasko-app'},
+        'subtasks': [],
+        'comments': [],
+        'assignee': null,
+        'proof': proof('https://b'),
+        'canReview': false,
+        'canArchive': false,
+        'canRequestExtension': false,
+      };
+      reply = (_) => http.Response(
+        jsonEncode({
+          ...base,
+          'proofs': [proof('https://b'), proof('https://a')],
+        }),
+        200,
+      );
+      final d = await api().detail(_task);
+      expect(d.proofs.map((p) => p.url), ['https://b', 'https://a']);
+      reply = (_) => http.Response(jsonEncode(base), 200);
+      expect((await api().detail(_task)).proofs, isEmpty);
+    },
+  );
 }
 
 const _task = Task(id: 7, name: 'x', status: TaskStatus.inProgress);
