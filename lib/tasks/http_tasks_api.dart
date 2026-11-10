@@ -344,6 +344,7 @@ Task _task(dynamic j) => Task(
   dueDate: _time(j['dueDate']),
   description: j['description'] as String?,
   assigneeId: j['assigneeId'] as int?,
+  creatorId: j['creatorId'] as int?,
   requiredProofType: j['requiredProofType'] as String?,
   personal: j['personal'] as bool,
   code: j['code'] as String?,

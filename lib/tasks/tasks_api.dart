@@ -991,9 +991,10 @@ class FakeTasksApi implements TasksApi {
       1;
 
   Task _add(TaskTab tab, Task task, {required User creator}) {
-    (_tasks[tab] ??= []).add(task);
+    final made = task.copyWith(creatorId: creator.id);
+    (_tasks[tab] ??= []).add(made);
     _creatorOf[task.id] = creator.id;
-    return task;
+    return made;
   }
 
   Task _replace(Task updated) {

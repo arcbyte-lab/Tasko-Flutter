@@ -63,6 +63,7 @@ class Task {
     this.dueDate,
     this.description,
     this.assigneeId,
+    this.creatorId,
     this.requiredProofType,
     this.personal = false,
     this.code,
@@ -85,6 +86,9 @@ class Task {
 
   /// Team tasks only.
   final int? assigneeId;
+
+  /// Who made the task; for a personal task, its owner.
+  final int? creatorId;
 
   /// Set means ticking sends the task to review (arcbyte decision 0004).
   final String? requiredProofType;
@@ -111,6 +115,7 @@ class Task {
     Priority? priority,
     DateTime? dueDate,
     int? Function()? assigneeId,
+    int? creatorId,
     DateTime? Function()? completedAt,
     Repeat? Function()? repeat,
     int? Function()? seriesId,
@@ -122,6 +127,7 @@ class Task {
     dueDate: dueDate ?? this.dueDate,
     description: description != null ? description() : this.description,
     assigneeId: assigneeId != null ? assigneeId() : this.assigneeId,
+    creatorId: creatorId ?? this.creatorId,
     requiredProofType: requiredProofType,
     personal: personal,
     code: code,
