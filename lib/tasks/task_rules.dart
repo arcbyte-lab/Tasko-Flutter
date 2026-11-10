@@ -91,6 +91,24 @@ Map<int, List<Task>> dueByDay(Iterable<Task> tasks, DateTime month) => {
 Map<int, int> dueCounts(Iterable<Task> tasks, DateTime month) =>
     dueByDay(tasks, month).map((day, list) => MapEntry(day, list.length));
 
+/// One arc of a calendar day's ring (hifi H12). A day gets one arc per kind
+/// of task due that day, in this order clockwise from the top.
+enum DayMark { overdue, open, review, done }
+
+/// The kinds of task due on [day], for its ring: done, in review, overdue
+/// (open and before [today]) or open.
+Set<DayMark> dayMarks(Iterable<Task> due, DateTime day, DateTime today) => {
+  for (final t in due)
+    if (t.status == TaskStatus.done)
+      DayMark.done
+    else if (t.status == TaskStatus.review)
+      DayMark.review
+    else if (day.isBefore(today))
+      DayMark.overdue
+    else
+      DayMark.open,
+};
+
 /// Dots under a calendar day: 1 for 1 open task, 2 for 2–3, 3 for 4 or more
 /// (arcbyte decision 0016), the old heatmap's steps.
 int dotCount(int count) => switch (count) {

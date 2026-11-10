@@ -186,6 +186,10 @@ class HomeState {
   Map<DateTime, List<Task>> get dueOn =>
       dueByDate(tasks, counts: _myTasks ? isOpenOrReview : isOpen);
 
+  /// Every task by due day, whatever its status, for the calendar's rings.
+  Map<DateTime, List<Task>> get taskDays =>
+      dueByDate(tasks, counts: (_) => true);
+
   HomeState copyWith({
     DateTime? month,
     DateTime? week,

@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tasko/core/theme/app_theme.dart';
 import 'package:tasko/tasks/home_cubit.dart';
 import 'package:tasko/tasks/screens/home_panel.dart';
+import 'package:tasko/tasks/task_rules.dart';
 import 'package:tasko/tasks/tasks_api.dart';
 import 'package:tasko/tasks/widgets/pulse_panel.dart';
 import 'package:tasko/tasks/widgets/tab_strip.dart';
@@ -15,7 +16,7 @@ void main() {
   late HomeCubit cubit;
 
   Future<void> pump(WidgetTester tester, {String tab = 'tasko-web'}) async {
-    tester.view.physicalSize = const Size(393 * 3, 1000 * 3);
+    tester.view.physicalSize = const Size(393 * 3, 1400 * 3);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
     final api = FakeTasksApi(today: now);
@@ -58,13 +59,13 @@ void main() {
 
   Finder day(int d) => find.bySemanticsLabel(RegExp('^Day $d(,|\$)'));
 
-  // The dots under [d]'s number, as their colours.
-  List<Color?> dotsOf(WidgetTester tester, int d) => [
-    for (final c in tester.widgetList<Container>(
-      find.descendant(of: day(d), matching: find.byType(Container)),
+  // The arcs of [d]'s ring, in the order they are drawn.
+  Set<DayMark> ringOf(WidgetTester tester, int d) => {
+    for (final p in tester.widgetList<CustomPaint>(
+      find.descendant(of: day(d), matching: find.byType(CustomPaint)),
     ))
-      if (c.constraints?.maxWidth == 4) (c.decoration as BoxDecoration?)?.color,
-  ];
+      if (p.foregroundPainter case final DayRingPainter ring) ...ring.marks,
+  };
 
   Future<Finder> checkboxOf(WidgetTester tester, String title) async {
     await scrollTo(tester, find.text(title));
@@ -203,19 +204,32 @@ void main() {
     expect(find.byTooltip('Expand calendar'), findsOneWidget);
   });
 
-  testWidgets('days show dots; an overdue day is red (0016)', (tester) async {
+  testWidgets('days show rings: one arc per kind of task due (H12)', (
+    tester,
+  ) async {
     await pump(tester);
     expect(find.text('MONTHLY'), findsNothing);
     expect(find.text('2026'), findsOneWidget);
     expect(day(14), findsOneWidget);
     expect(find.bySemanticsLabel('Day 14, 4 open'), findsOneWidget);
-    expect(dotsOf(tester, 14), [
-      AppColors.primary,
-      AppColors.primary,
-      AppColors.primary,
-    ]);
-    expect(dotsOf(tester, 3), [AppColors.destructive]); // Fix login redirect
-    expect(dotsOf(tester, 10), isEmpty);
+    expect(ringOf(tester, 14), isNotEmpty);
+    expect(ringOf(tester, 14), isNot(contains(DayMark.overdue)));
+    expect(ringOf(tester, 3), {DayMark.overdue}); // Fix login redirect
+    expect(ringOf(tester, 10), isEmpty);
+  });
+
+  testWidgets('the month is as tall in a 4 week month as in a 6 week one', (
+    tester,
+  ) async {
+    await pump(tester);
+    final october = tester.getSize(find.byType(PulsePanel)).height; // 5 weeks
+    cubit.changeMonth(4); // February 2027 starts on a Monday: 4 weeks
+    await tester.pumpAndSettle();
+    expect(find.text('February'), findsOneWidget);
+    expect(tester.getSize(find.byType(PulsePanel)).height, october);
+    cubit.changeMonth(-5); // May 2026 starts on a Friday: 6 weeks
+    await tester.pumpAndSettle();
+    expect(tester.getSize(find.byType(PulsePanel)).height, october);
   });
 
   testWidgets('a day tap collapses to its week; a swipe keeps the day', (

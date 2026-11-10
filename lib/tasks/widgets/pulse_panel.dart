@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show setEquals;
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
@@ -16,6 +17,7 @@ class PulsePanel extends StatelessWidget {
     required this.week,
     required this.today,
     required this.dueOn,
+    required this.taskDays,
     required this.selectedDay,
     required this.showsWeek,
     required this.onDayTap,
@@ -36,6 +38,9 @@ class PulsePanel extends StatelessWidget {
 
   /// Open tasks by due day; any day before [today] is overdue.
   final Map<DateTime, List<Task>> dueOn;
+
+  /// Every task by due day, whatever its status, for the rings.
+  final Map<DateTime, List<Task>> taskDays;
   final DateTime? selectedDay;
   final bool showsWeek;
   final ValueChanged<DateTime> onDayTap;
@@ -51,6 +56,13 @@ class PulsePanel extends StatelessWidget {
   final Widget Function(Widget child) handle;
   final bool expanded;
   final VoidCallback? onToggleExpanded;
+
+  /// A week row, 44 tall (hifi H12).
+  static const _rowHeight = 44.0;
+
+  /// The month always has room for 6 weeks, so it does not change height
+  /// from one month to the next.
+  static const _monthRows = 6;
 
   /// The weeks of the page [step] pages from the current one: one week in
   /// the strip, else a month's weeks with null for the days outside it.
@@ -86,13 +98,13 @@ class PulsePanel extends StatelessWidget {
   /// Half-way between month and week: [month]'s grid, its height between
   /// one row and all of them, shifted so the folding week's row stays put.
   Widget _folding(double t, Widget monthGrid) {
-    const rowHeight = 40.0;
+    const rowHeight = _rowHeight;
     final first = mondayOf(DateTime(month.year, month.month));
-    final rows = _weeks(false, 0).length;
+    final rows = _monthRows;
     final anchor = showsWeek ? week : foldWeek(month, selectedDay, today);
     final row = (anchor.difference(first).inHours / (24 * 7)).round().clamp(
       0,
-      rows - 1,
+      _weeks(false, 0).length - 1,
     );
     final top = row * rowHeight;
     return SizedBox(
@@ -127,6 +139,7 @@ class PulsePanel extends StatelessWidget {
           : _Day(
               date: d,
               tasks: dueOn[d] ?? const [],
+              marks: dayMarks(taskDays[d] ?? const [], d, today),
               overdue: d.isBefore(today),
               isToday: isSameDay(d, today),
               selected: selectedDay != null && isSameDay(d, selectedDay!),
@@ -135,11 +148,14 @@ class PulsePanel extends StatelessWidget {
             ),
     );
     Widget row(List<DateTime?> w) => Container(
-      height: expanded ? null : 40,
+      height: expanded ? null : _rowHeight,
       padding: EdgeInsets.symmetric(horizontal: expanded ? 4 : 8),
-      decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: AppColors.border)),
-      ),
+      // The full-screen grid keeps its lines; the month and week have none.
+      decoration: expanded
+          ? const BoxDecoration(
+              border: Border(top: BorderSide(color: AppColors.border)),
+            )
+          : null,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [for (final d in w) cell(d)],
@@ -151,6 +167,10 @@ class PulsePanel extends StatelessWidget {
       children: [
         for (final w in _weeks(strip, step))
           expanded ? Expanded(child: row(w)) : row(w),
+        // A 4 or 5 week month keeps the height of 6.
+        if (!strip && !expanded)
+          for (var i = _weeks(strip, step).length; i < _monthRows; i++)
+            const SizedBox(height: _rowHeight),
       ],
     );
     final pager = _Pager(
@@ -161,10 +181,7 @@ class PulsePanel extends StatelessWidget {
     );
 
     return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.muted,
-        border: Border(bottom: BorderSide(color: AppColors.border)),
-      ),
+      color: AppColors.muted,
       padding: const EdgeInsets.only(bottom: 4),
       child: Column(
         mainAxisSize: expanded ? MainAxisSize.max : MainAxisSize.min,
@@ -527,6 +544,7 @@ class _Day extends StatelessWidget {
   const _Day({
     required this.date,
     required this.tasks,
+    required this.marks,
     required this.overdue,
     required this.isToday,
     required this.selected,
@@ -538,6 +556,9 @@ class _Day extends StatelessWidget {
 
   /// Open tasks due this day, in order.
   final List<Task> tasks;
+
+  /// The arcs of the ring: one per kind of task due this day.
+  final Set<DayMark> marks;
   final bool overdue;
   final bool isToday;
   final bool selected;
@@ -553,14 +574,18 @@ class _Day extends StatelessWidget {
     final fill = selected
         ? AppColors.foreground
         : isToday
-        ? AppColors.primary
+        ? Colors.black
         : null;
-    final circle = big ? 24.0 : 28.0;
+    final circle = big ? 24.0 : 36.0;
     final number = Container(
       width: circle,
       height: circle,
       alignment: Alignment.center,
-      decoration: BoxDecoration(color: fill, shape: BoxShape.circle),
+      // Every day is a grey disc in the month and the week (hifi H12).
+      decoration: BoxDecoration(
+        color: fill ?? (big ? null : AppColors.secondary),
+        shape: BoxShape.circle,
+      ),
       child: Text(
         '${date.day}',
         style: TextStyle(
@@ -611,28 +636,11 @@ class _Day extends StatelessWidget {
         ),
       );
     } else {
-      final dots = dotCount(tasks.length);
-      body = Column(
-        children: [
-          const SizedBox(height: 3),
-          number,
-          const SizedBox(height: 2),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              for (var i = 0; i < dots; i++)
-                Container(
-                  width: 4,
-                  height: 4,
-                  margin: const EdgeInsets.symmetric(horizontal: 1),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: overdue ? AppColors.destructive : AppColors.primary,
-                  ),
-                ),
-            ],
-          ),
-        ],
+      body = Center(
+        child: CustomPaint(
+          foregroundPainter: DayRingPainter(marks),
+          child: number,
+        ),
       );
     }
 
@@ -684,4 +692,47 @@ class _Pill extends StatelessWidget {
       ),
     ),
   );
+}
+
+/// The ring round a day: one arc per kind of task, split evenly and drawn
+/// clockwise from the top in [DayMark] order (hifi H12). No tasks, no ring.
+class DayRingPainter extends CustomPainter {
+  DayRingPainter(this.marks);
+
+  final Set<DayMark> marks;
+
+  static const _colors = {
+    DayMark.overdue: Color(0xFFEF4444),
+    DayMark.open: Color(0xFF2563EB),
+    DayMark.review: Color(0xFFF97316),
+    DayMark.done: Color(0xFF16A34A),
+  };
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (marks.isEmpty) return;
+    const width = 2.0;
+    const pi = 3.141592653589793;
+    final rect = (Offset.zero & size).deflate(width / 2);
+    final kinds = [
+      for (final m in DayMark.values)
+        if (marks.contains(m)) m,
+    ];
+    final sweep = 2 * pi / kinds.length;
+    for (var i = 0; i < kinds.length; i++) {
+      canvas.drawArc(
+        rect,
+        -pi / 2 + i * sweep,
+        sweep,
+        false,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = width
+          ..color = _colors[kinds[i]]!,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(DayRingPainter old) => !setEquals(old.marks, marks);
 }
