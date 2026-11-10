@@ -13,6 +13,7 @@ class AppPalette {
     required this.border,
     required this.control,
     required this.background,
+    this.isDark = false,
   });
 
   final Color foreground;
@@ -20,6 +21,9 @@ class AppPalette {
   final Color border;
   final Color control;
   final Color background;
+
+  /// Badges and other drawn colours pick their dark look from this.
+  final bool isDark;
 
   static const light = AppPalette(
     foreground: AppColors.foreground,
@@ -30,11 +34,12 @@ class AppPalette {
   );
 
   static const dark = AppPalette(
-    foreground: Color(0xFFF9FAFB),
+    foreground: Color(0xFFF3F4F6),
     muted: Color(0xFF9CA3AF),
     border: Color(0xFF27272A),
     control: Color(0xFF52525B),
     background: Colors.black,
+    isDark: true,
   );
 
   static AppPalette of(BuildContext context) =>

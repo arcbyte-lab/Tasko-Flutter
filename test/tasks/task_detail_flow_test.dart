@@ -76,7 +76,10 @@ void main() {
   ) async {
     await open(tester, 'tasko-web', 'Fix login redirect');
     expect(find.text('tasko-web'), findsWidgets);
-    expect(find.text('TW-0041'), findsOneWidget);
+    expect(
+      find.text('TW-0041'),
+      findsWidgets,
+    ); // the list row's and the detail's
     for (final label in ['status', 'priority', 'due', 'assignee', 'proof']) {
       expect(find.text(label), findsOneWidget);
     }

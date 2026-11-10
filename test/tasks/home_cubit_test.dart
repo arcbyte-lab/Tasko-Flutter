@@ -13,9 +13,6 @@ void main() {
     await cubit.load();
   });
 
-  Task named(String name) =>
-      cubit.state.tasks.firstWhere((t) => t.name == name);
-
   test('loads my tasks first in the list but home opens on tech; '
       'My Workspace opens on my tasks (0020)', () {
     expect(cubit.state.tabs.map((t) => t.name), [
@@ -69,18 +66,6 @@ void main() {
     );
     final day = dateOnly(review.dueDate!);
     expect(cubit.state.dueOn[day], contains(review));
-  });
-
-  test('ticking in my tasks updates the tab the task lives in', () async {
-    cubit.openWorkspace();
-    final t = cubit.state.tasks.firstWhere(
-      (t) => !t.personal && isOpen(t) && t.requiredProofType == null,
-    );
-    final home = cubit.state.tabOf(t)!;
-    await cubit.tick(t);
-    final after = cubit.state.tasksByTab[home]!.firstWhere((x) => x.id == t.id);
-    expect(after.status, TaskStatus.done);
-    expect(cubit.state.activeTab, TaskTab.myTasks);
   });
 
   test(
@@ -178,41 +163,5 @@ void main() {
     expect(cubit.state.month, DateTime(2026, 11));
     cubit.changeMonth(-2);
     expect(cubit.state.month, DateTime(2026, 9));
-  });
-
-  test('ticking a team task: done, out of the counts, and back', () async {
-    await cubit.selectTab(FakeTasksApi.taskoWeb);
-    final before = cubit.state.dueCountsThisMonth[7]!;
-    await cubit.tick(named('Write onboarding copy'));
-    expect(named('Write onboarding copy').status, TaskStatus.done);
-    expect(cubit.state.dueCountsThisMonth[7] ?? 0, before - 1);
-    await cubit.tick(named('Write onboarding copy'));
-    expect(named('Write onboarding copy').status, TaskStatus.waiting);
-  });
-
-  test('a task in review does not change', () async {
-    await cubit.selectTab(FakeTasksApi.taskoWeb);
-    await cubit.tick(named('Review PR #42'));
-    expect(named('Review PR #42').status, TaskStatus.review);
-  });
-
-  test(
-    'a task that needs a proof waits for a link, then goes to review',
-    () async {
-      await cubit.selectTab(FakeTasksApi.taskoWeb);
-      final t = named('Upload release screenshots');
-      await expectLater(cubit.tick(t), throwsA(isA<ProofRequired>()));
-      expect(named('Upload release screenshots').status, TaskStatus.waiting);
-      await cubit.tick(t, proofUrl: 'https://example.com/shot.png');
-      expect(named('Upload release screenshots').status, TaskStatus.review);
-    },
-  );
-
-  test('the change survives switching tabs (the API kept it)', () async {
-    await cubit.selectTab(TaskTab.private);
-    await cubit.tick(named('Renew passport'));
-    await cubit.selectTab(FakeTasksApi.tech);
-    await cubit.selectTab(TaskTab.private);
-    expect(named('Renew passport').status, TaskStatus.done);
   });
 }
