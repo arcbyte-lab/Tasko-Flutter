@@ -247,7 +247,7 @@ class HomeView extends StatelessWidget {
                   constraints: BoxConstraints(
                     maxHeight: state.calendarExpanded
                         ? double.infinity
-                        : MediaQuery.sizeOf(context).height * 0.4,
+                        : MediaQuery.sizeOf(context).height * 0.55,
                   ),
                   child: _pullable(
                     PulsePanel(
@@ -257,6 +257,7 @@ class HomeView extends StatelessWidget {
                       week: state.week,
                       today: state.today,
                       dueOn: state.dueOn,
+                      taskDays: state.taskDays,
                       selectedDay: state.selectedDay,
                       showsWeek: state.showsWeek,
                       onDayTap: onDayTap,
@@ -271,24 +272,37 @@ class HomeView extends StatelessWidget {
               ),
               // The full-screen calendar hides the tabs and the list.
               if (!state.calendarExpanded) ...[
+                // The white section rounds its top corners over the calendar's
+                // grey (hifi H12, radius 16).
                 Expanded(
-                  child: TabPages(
-                    tabs: tabs,
-                    active: active,
-                    onPageChanged: onSelectTab,
-                    pageBuilder: (tab) => _page(state.pageFor(tab)),
-                    header: (position) => Column(
-                      children: [
-                        handle(
-                          TabStrip(
-                            tabs: tabs,
-                            active: active,
-                            position: position,
-                            onSelect: onSelectTab,
+                  child: ColoredBox(
+                    color: AppColors.muted,
+                    child: ClipRRect(
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(16),
+                      ),
+                      child: ColoredBox(
+                        color: AppColors.background,
+                        child: TabPages(
+                          tabs: tabs,
+                          active: active,
+                          onPageChanged: onSelectTab,
+                          pageBuilder: (tab) => _page(state.pageFor(tab)),
+                          header: (position) => Column(
+                            children: [
+                              handle(
+                                TabStrip(
+                                  tabs: tabs,
+                                  active: active,
+                                  position: position,
+                                  onSelect: onSelectTab,
+                                ),
+                              ),
+                              toolbar,
+                            ],
                           ),
                         ),
-                        toolbar,
-                      ],
+                      ),
                     ),
                   ),
                 ),

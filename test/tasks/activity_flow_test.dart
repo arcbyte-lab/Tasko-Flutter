@@ -17,7 +17,7 @@ void main() {
   final now = DateTime(2026, 10, 7, 10);
 
   Future<void> home(WidgetTester tester) async {
-    tester.view.physicalSize = const Size(393 * 3, 852 * 3);
+    tester.view.physicalSize = const Size(393 * 3, 1400 * 3);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
     final api = FakeTasksApi(today: now);

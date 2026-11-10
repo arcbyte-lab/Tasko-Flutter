@@ -96,6 +96,39 @@ void main() {
     );
   });
 
+  test(
+    'a day ring has one arc per kind of task due, in a fixed order (H12)',
+    () {
+      Task t(TaskStatus status) => Task(id: 1, name: 'x', status: status);
+      final today = DateTime(2026, 10, 7);
+      final past = DateTime(2026, 10, 3);
+      final later = DateTime(2026, 10, 14);
+      expect(dayMarks([], later, today), isEmpty);
+      expect(dayMarks([t(TaskStatus.waiting)], later, today), {DayMark.open});
+      // an open task before today is overdue, a task in review never is
+      expect(dayMarks([t(TaskStatus.inProgress)], past, today), {
+        DayMark.overdue,
+      });
+      expect(dayMarks([t(TaskStatus.review)], past, today), {DayMark.review});
+      expect(dayMarks([t(TaskStatus.done)], past, today), {DayMark.done});
+      // two of one kind are one arc
+      expect(
+        dayMarks(
+          [t(TaskStatus.waiting), t(TaskStatus.inProgress), t(TaskStatus.done)],
+          later,
+          today,
+        ),
+        {DayMark.open, DayMark.done},
+      );
+      expect(DayMark.values, [
+        DayMark.overdue,
+        DayMark.open,
+        DayMark.review,
+        DayMark.done,
+      ]);
+    },
+  );
+
   test('my tasks: who reviews, and what is mine (0004, 0017)', () {
     const lead = TaskTab(TabKind.division, 1, 'tech', role: 'supervisor');
     const member = TaskTab(TabKind.division, 1, 'tech', role: 'member');
