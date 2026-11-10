@@ -226,15 +226,7 @@ class TaskDetailView extends StatelessWidget {
         shrinkWrap: true,
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
         children: [
-          _Header(
-            tabName: detail?.tab.name ?? '',
-            code: task.code,
-            canExtend: detail?.canRequestExtension ?? false,
-            canArchive: detail?.canArchive ?? false,
-            onRequestExtension: onRequestExtension,
-            onArchive: onArchive,
-            onActivity: detail?.canViewLog ?? false ? onActivity : null,
-          ),
+          _Header(tabName: detail?.tab.name ?? '', code: task.code),
           _EditableText(
             key: const ValueKey('title'),
             text: task.name,
@@ -261,84 +253,87 @@ class TaskDetailView extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          _PropRow(
-            icon: Icons.adjust,
-            label: 'status',
-            value: StatusPill(task.status),
-          ),
-          _PropRow(
-            icon: Icons.flag_outlined,
-            label: 'priority',
-            onTap: onPriority,
-            value: Text(
-              task.priority.name,
-              style: TextStyle(
-                fontSize: 15,
-                color: task.priority == Priority.urgent
-                    ? AppColors.destructive
-                    : AppColors.foreground,
+          _DetailTabs(
+            showDiscussion: team,
+            brief: [
+              _PropRow(
+                icon: Icons.adjust,
+                label: 'status',
+                value: StatusPill(task.status),
               ),
-            ),
-          ),
-          _PropRow(
-            icon: Icons.calendar_today_outlined,
-            label: 'due',
-            onTap: onDueDate,
-            value: _dueText(task),
-          ),
-          // Only a workspace's own top-level tasks repeat (arcbyte decision 0009).
-          if (detail?.tab.kind == TabKind.division && task.parentId == null)
-            _PropRow(
-              icon: Icons.repeat,
-              label: 'repeat',
-              // Only a division lead sets it up; others see it (decision 0012).
-              onTap: detail!.canRepeat ? onRepeat : null,
-              value: Text(
-                task.repeat == null
-                    ? 'does not repeat'
-                    : repeatSummary(task.repeat!, today),
-                style: TextStyle(
-                  fontSize: 15,
-                  color: detail.canRepeat ? null : AppColors.mutedForeground,
+              _PropRow(
+                icon: Icons.flag_outlined,
+                label: 'priority',
+                onTap: onPriority,
+                value: Text(
+                  task.priority.name,
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: task.priority == Priority.urgent
+                        ? AppColors.destructive
+                        : AppColors.foreground,
+                  ),
                 ),
               ),
-            ),
-          if (team) ...[
-            _PropRow(
-              icon: Icons.person_outline,
-              label: 'assignee',
-              onTap: onAssignee,
-              value: _assignee(detail?.assignee),
-            ),
-            _PropRow(
-              icon: Icons.attach_file,
-              label: 'proof',
-              onTap: onProof,
-              value: Text(
-                detail?.proof?.url ??
-                    (task.requiredProofType == null ? 'none' : 'required'),
-                style: const TextStyle(fontSize: 15),
+              _PropRow(
+                icon: Icons.calendar_today_outlined,
+                label: 'due',
+                onTap: onDueDate,
+                value: _dueText(task),
               ),
-            ),
-          ],
-          if (detail == null)
-            const Padding(
-              padding: EdgeInsets.all(24),
-              child: Center(child: CircularProgressIndicator()),
-            )
-          else ...[
-            _Subtasks(
-              subtasks: detail.subtasks,
-              onTick: onTickSubtask,
-              onAdd: onAddSubtask,
-            ),
-            if (team)
-              _Discussion(
-                comments: detail.comments,
-                now: DateTime.now(),
-                onSend: onComment,
-              ),
-          ],
+              // Only a workspace's own top-level tasks repeat (arcbyte decision 0009).
+              if (detail?.tab.kind == TabKind.division && task.parentId == null)
+                _PropRow(
+                  icon: Icons.repeat,
+                  label: 'repeat',
+                  // Only a division lead sets it up; others see it (decision 0012).
+                  onTap: detail!.canRepeat ? onRepeat : null,
+                  value: Text(
+                    task.repeat == null
+                        ? 'does not repeat'
+                        : repeatSummary(task.repeat!, today),
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: detail.canRepeat
+                          ? null
+                          : AppColors.mutedForeground,
+                    ),
+                  ),
+                ),
+              if (team) ...[
+                _PropRow(
+                  icon: Icons.person_outline,
+                  label: 'assignee',
+                  onTap: onAssignee,
+                  value: _assignee(detail?.assignee),
+                ),
+                _PropRow(
+                  icon: Icons.attach_file,
+                  label: 'proof',
+                  onTap: onProof,
+                  value: Text(
+                    detail?.proof?.url ??
+                        (task.requiredProofType == null ? 'none' : 'required'),
+                    style: const TextStyle(fontSize: 15),
+                  ),
+                ),
+              ],
+            ],
+            subtasks: detail == null
+                ? null
+                : _Subtasks(
+                    subtasks: detail.subtasks,
+                    onTick: onTickSubtask,
+                    onAdd: onAddSubtask,
+                  ),
+            discussion: detail == null || !team
+                ? null
+                : _Discussion(
+                    comments: detail.comments,
+                    now: DateTime.now(),
+                    onSend: onComment,
+                  ),
+          ),
         ],
       ),
     );
@@ -353,6 +348,13 @@ class TaskDetailView extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          _QuickActions(
+            onActivity: detail?.canViewLog ?? false ? onActivity : null,
+            onRequestExtension: detail?.canRequestExtension ?? false
+                ? onRequestExtension
+                : null,
+            onArchive: detail?.canArchive ?? false ? onArchive : null,
+          ),
           Flexible(child: panel),
           if (action != DetailAction.none && media.viewInsets.bottom == 0) ...[
             const SizedBox(height: 12),
@@ -426,39 +428,14 @@ class TaskDetailView extends StatelessWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({
-    required this.tabName,
-    required this.code,
-    required this.canExtend,
-    required this.canArchive,
-    required this.onRequestExtension,
-    required this.onArchive,
-    this.onActivity,
-  });
+  const _Header({required this.tabName, required this.code});
 
   final String tabName;
   final String? code;
-  final bool canExtend;
-  final bool canArchive;
-  final VoidCallback onRequestExtension;
-  final VoidCallback onArchive;
-
-  /// Null hides "activity": only the tab's leads open a task's log (0014).
-  final VoidCallback? onActivity;
 
   @override
   Widget build(BuildContext context) {
     const muted = TextStyle(fontSize: 12, color: AppColors.mutedForeground);
-    Widget item(String title, String who, {Color? color}) => Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: TextStyle(fontSize: 15, color: color ?? AppColors.foreground),
-        ),
-        Text(who, style: muted),
-      ],
-    );
     return SizedBox(
       height: 40,
       child: Row(
@@ -468,50 +445,148 @@ class _Header extends StatelessWidget {
             const SizedBox(width: 6),
             Text(code!, style: muted.copyWith(fontFamily: fontMono)),
           ],
-          const Spacer(),
-          if (canExtend || canArchive || onActivity != null)
-            PopupMenuButton<VoidCallback>(
-              tooltip: 'More',
-              icon: const Icon(
-                Icons.more_vert,
-                color: AppColors.mutedForeground,
-              ),
-              color: AppColors.background,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(6),
-                side: const BorderSide(color: AppColors.border),
-              ),
-              onSelected: (action) => action(),
-              itemBuilder: (_) => [
-                if (onActivity != null)
-                  PopupMenuItem(
-                    value: onActivity,
-                    child: item('activity', 'leads only'),
-                  ),
-                if (canExtend)
-                  PopupMenuItem(
-                    value: onRequestExtension,
-                    child: item('request due date extension', 'members only'),
-                  ),
-                if (canArchive)
-                  PopupMenuItem(
-                    value: onArchive,
-                    child: item(
-                      'archive task',
-                      'author only',
-                      color: AppColors.destructive,
-                    ),
-                  ),
-              ],
-            ),
         ],
       ),
     );
   }
 }
 
-/// A text field that looks like plain text. Edits go out as drafts and are
-/// saved on blur.
+/// Brief / Sub tasks / Discussion under the note (hifi H11). A private task
+/// has no Discussion.
+class _DetailTabs extends StatefulWidget {
+  const _DetailTabs({
+    required this.brief,
+    required this.subtasks,
+    required this.discussion,
+    required this.showDiscussion,
+  });
+
+  final List<Widget> brief;
+  final Widget? subtasks;
+  final Widget? discussion;
+  final bool showDiscussion;
+
+  @override
+  State<_DetailTabs> createState() => _DetailTabsState();
+}
+
+class _DetailTabsState extends State<_DetailTabs> {
+  int _index = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final names = [
+      'Brief',
+      'Sub tasks',
+      if (widget.showDiscussion) 'Discussion',
+    ];
+    final body = switch (_index) {
+      0 => Column(children: widget.brief),
+      1 => widget.subtasks,
+      _ => widget.discussion,
+    };
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              for (var i = 0; i < names.length; i++)
+                InkWell(
+                  onTap: () => setState(() => _index = i),
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(0, 6, 0, 8),
+                    margin: const EdgeInsets.only(right: 20),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(
+                          width: 2,
+                          color: i == _index
+                              ? AppColors.primary
+                              : Colors.transparent,
+                        ),
+                      ),
+                    ),
+                    child: Text(
+                      names[i],
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: i == _index
+                            ? AppColors.foreground
+                            : AppColors.mutedForeground,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        body ??
+            const Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+      ],
+    );
+  }
+}
+
+/// 45px circles above the panel: history for leads, then extension and
+/// archive for those who may (hifi H11). Edit and proof list come with H13.
+class _QuickActions extends StatelessWidget {
+  const _QuickActions({
+    this.onActivity,
+    this.onRequestExtension,
+    this.onArchive,
+  });
+
+  final VoidCallback? onActivity;
+  final VoidCallback? onRequestExtension;
+  final VoidCallback? onArchive;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget button(IconData icon, String tooltip, VoidCallback? onTap) {
+      if (onTap == null) return const SizedBox.shrink();
+      return Tooltip(
+        message: tooltip,
+        child: InkWell(
+          onTap: onTap,
+          customBorder: const CircleBorder(),
+          child: Container(
+            width: 45,
+            height: 45,
+            decoration: const BoxDecoration(
+              color: Color(0xFFF7F9FA),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 20, color: AppColors.mutedForeground),
+          ),
+        ),
+      );
+    }
+
+    final buttons = [
+      button(Icons.history, 'History', onActivity),
+      button(Icons.update, 'Request extension', onRequestExtension),
+      button(Icons.delete_outline, 'Archive task', onArchive),
+    ];
+    if (onActivity == null && onRequestExtension == null && onArchive == null) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        spacing: 8,
+        children: buttons.where((b) => b is! SizedBox).toList(),
+      ),
+    );
+  }
+}
+
 class _EditableText extends StatefulWidget {
   const _EditableText({
     super.key,
@@ -683,15 +758,10 @@ class _SubtasksState extends State<_Subtasks> {
   @override
   Widget build(BuildContext context) {
     final subs = widget.subtasks;
-    final done = subs.where((t) => t.status == TaskStatus.done).length;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 20),
-        Text(
-          subs.isEmpty ? 'SUB-TASKS' : 'SUB-TASKS ($done/${subs.length})',
-          style: groupLabelStyle(),
-        ),
+        const SizedBox(height: 8),
         for (final t in subs)
           Row(
             children: [
@@ -789,9 +859,7 @@ class _DiscussionState extends State<_Discussion> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 20),
-        Text('DISCUSSION', style: groupLabelStyle()),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         for (final c in widget.comments)
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
@@ -889,9 +957,7 @@ class _ActionBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final shape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(6),
-    );
+    const shape = StadiumBorder();
     const text = TextStyle(
       fontFamily: 'Inter',
       fontSize: 15,
@@ -903,7 +969,7 @@ class _ActionBar extends StatelessWidget {
           icon: icon == null ? null : Icon(icon, size: 18),
           label: Text(label),
           style: FilledButton.styleFrom(
-            minimumSize: const Size.fromHeight(44),
+            minimumSize: const Size.fromHeight(36),
             shape: shape,
             textStyle: text,
           ),
@@ -924,7 +990,7 @@ class _ActionBar extends StatelessWidget {
             child: OutlinedButton(
               onPressed: onReject,
               style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(44),
+                minimumSize: const Size.fromHeight(36),
                 shape: shape,
                 textStyle: text,
                 foregroundColor: AppColors.destructive,
@@ -938,7 +1004,7 @@ class _ActionBar extends StatelessWidget {
         ],
       ),
       DetailAction.done => SizedBox(
-        height: 44,
+        height: 36,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -960,10 +1026,10 @@ class _ActionBar extends StatelessWidget {
     };
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: AppColors.background,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(100),
         border: Border.all(color: AppColors.border),
         boxShadow: const [
           BoxShadow(

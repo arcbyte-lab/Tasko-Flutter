@@ -257,11 +257,8 @@ void main() {
 
     await step('comments: deleted hidden, new one appears', () async {
       await openTask('ops-site', 'Move furniture');
-      await tester.scrollUntilVisible(
-        find.text('DISCUSSION'),
-        150,
-        scrollable: find.byType(Scrollable).last,
-      );
+      await tester.tap(find.text('Discussion'));
+      await settle();
       expect(find.text('Deleted, so it never shows.'), findsNothing);
       expect(find.text('Comment from Hadi, now inactive.'), findsOneWidget);
       await tester.enterText(
@@ -467,9 +464,7 @@ void main() {
 
     await step('the task log, from Task Detail’s menu', () async {
       await openTask('tech', 'Renew SSL certificate');
-      await tester.tap(find.byTooltip('More'));
-      await settle();
-      await tester.tap(find.text('activity'));
+      await tester.tap(find.byTooltip('History'));
       await waitFor(find.text('Renew SSL certificate activity'));
       await waitFor(find.textContaining('Ana made it repeat'));
       await home();

@@ -5,7 +5,6 @@ import 'package:tasko/core/theme/app_theme.dart';
 import 'package:tasko/tasks/home_cubit.dart';
 import 'package:tasko/tasks/models.dart';
 import 'package:tasko/tasks/screens/home_panel.dart';
-import 'package:tasko/tasks/screens/task_detail_sheet.dart';
 import 'package:tasko/tasks/tasks_api.dart';
 
 void main() {
@@ -78,15 +77,9 @@ void main() {
     expect(find.text('repeat'), findsNothing, reason: 'a project task');
     expect(find.text('in progress'), findsWidgets);
     expect(find.text('required'), findsOneWidget);
-    expect(find.text('SUB-TASKS (1/3)'), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.descendant(
-        of: find.byType(TaskDetailView),
-        matching: find.text('DISCUSSION'),
-      ),
-      100,
-      scrollable: find.byType(Scrollable).last,
-    );
+    expect(find.text('Sub tasks'), findsOneWidget);
+    await tester.tap(find.text('Discussion'));
+    await tester.pumpAndSettle();
     expect(
       find.text('Only happens on Safari for me. Chrome is fine.'),
       findsOneWidget,
@@ -107,6 +100,8 @@ void main() {
     await tester.enterText(find.byType(TextField).last, 'https://x.dev/a.png');
     await tester.pump();
     await tester.tap(button('send for review'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Brief'));
     await tester.pumpAndSettle();
     expect(find.text('https://x.dev/a.png'), findsOneWidget);
     expect(find.text('approve'), findsOneWidget); // Mira reviews tasko-web
@@ -184,14 +179,8 @@ void main() {
     await open(tester, 'private', 'Buy domain');
     expect(find.text('assignee'), findsNothing);
     expect(find.text('proof'), findsNothing);
-    expect(
-      find.descendant(
-        of: find.byType(TaskDetailView),
-        matching: find.text('DISCUSSION'),
-      ),
-      findsNothing,
-    );
-    expect(find.text('SUB-TASKS (1/2)'), findsOneWidget);
+    expect(find.text('Discussion'), findsNothing);
+    expect(find.text('Sub tasks'), findsOneWidget);
 
     await tester.tap(button('start working'));
     await tester.pumpAndSettle();
@@ -224,12 +213,11 @@ void main() {
     expect(find.text('Deploy prod'), findsOneWidget);
   });
 
-  testWidgets('a member asks for an extension from the menu', (tester) async {
+  testWidgets('a member asks for an extension from the quick actions', (
+    tester,
+  ) async {
     await open(tester, 'tasko-app', 'Set up CI');
-    await tester.tap(find.byTooltip('More'));
-    await tester.pumpAndSettle();
-    expect(find.text('members only'), findsOneWidget);
-    await tester.tap(find.text('request due date extension'));
+    await tester.tap(find.byTooltip('Request extension'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('pick a date'));
