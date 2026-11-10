@@ -5,6 +5,7 @@ import 'package:tasko/core/theme/app_theme.dart';
 import 'package:tasko/tasks/home_cubit.dart';
 import 'package:tasko/tasks/models.dart';
 import 'package:tasko/tasks/screens/home_panel.dart';
+import 'package:tasko/tasks/screens/task_detail_sheet.dart';
 import 'package:tasko/tasks/tasks_api.dart';
 
 void main() {
@@ -73,7 +74,10 @@ void main() {
     expect(find.text('required'), findsOneWidget);
     expect(find.text('SUB-TASKS (1/3)'), findsOneWidget);
     await tester.scrollUntilVisible(
-      find.text('DISCUSSION'),
+      find.descendant(
+        of: find.byType(TaskDetailView),
+        matching: find.text('DISCUSSION'),
+      ),
       100,
       scrollable: find.byType(Scrollable).last,
     );
@@ -174,7 +178,13 @@ void main() {
     await open(tester, 'private', 'Buy domain');
     expect(find.text('assignee'), findsNothing);
     expect(find.text('proof'), findsNothing);
-    expect(find.text('DISCUSSION'), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byType(TaskDetailView),
+        matching: find.text('DISCUSSION'),
+      ),
+      findsNothing,
+    );
     expect(find.text('SUB-TASKS (1/2)'), findsOneWidget);
 
     await tester.tap(button('start working'));

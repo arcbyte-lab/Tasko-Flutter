@@ -20,32 +20,38 @@ class Rails extends StatelessWidget {
     return SizedBox(
       width: MediaQuery.sizeOf(context).width,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 19.5),
+        padding: const EdgeInsets.symmetric(horizontal: 20),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _Rail([
-              const _Item(Icons.home_outlined, 'Home', active: true),
-              _Item(
-                Icons.perm_media_outlined,
-                'Media',
-                onTap: () => soon('Media'),
-              ),
-              _Item(
-                Icons.chat_bubble_outline,
-                'Discussion',
-                onTap: () => soon('Discussion'),
-              ),
-            ]),
-            _Rail([
-              if (onNewProject != null)
+            Flexible(
+              flex: 3,
+              child: _Rail([
+                const _Item(Icons.home_outlined, 'Home', active: true),
                 _Item(
-                  Icons.create_new_folder_outlined,
-                  'New project',
-                  onTap: onNewProject,
+                  Icons.view_in_ar_outlined,
+                  'Media',
+                  onTap: () => soon('Media'),
                 ),
-              _Item(Icons.add, 'New task', onTap: onNewTask),
-            ]),
+                _Item(
+                  Icons.chat_bubble_outline,
+                  'Discussion',
+                  onTap: () => soon('Discussion'),
+                ),
+              ]),
+            ),
+            const SizedBox(width: 9),
+            Flexible(
+              flex: 2,
+              child: _Rail([
+                if (onNewProject != null)
+                  _Item(
+                    Icons.dashboard_customize_outlined,
+                    'New project',
+                    onTap: onNewProject,
+                  ),
+                _Item(Icons.note_add_outlined, 'New task', onTap: onNewTask),
+              ]),
+            ),
           ],
         ),
       ),
@@ -64,13 +70,16 @@ class _Rail extends StatelessWidget {
       filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
       child: Container(
         height: 52,
-        padding: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 6),
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.5),
           border: Border.all(color: AppColors.border),
           borderRadius: BorderRadius.circular(26),
         ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: items),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [for (final i in items) Flexible(child: i)],
+        ),
       ),
     ),
   );
@@ -92,8 +101,11 @@ class _Item extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(22),
         child: Container(
-          width: 56,
-          height: 44,
+          constraints: const BoxConstraints(
+            maxWidth: 70,
+            minHeight: 44,
+            maxHeight: 44,
+          ),
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: active ? const Color(0xFFE0F2FE) : null,
@@ -104,8 +116,8 @@ class _Item extends StatelessWidget {
             children: [
               Icon(icon, size: 20, color: color),
               Text(
-                label,
-                style: TextStyle(fontSize: 9, color: color),
+                label.toUpperCase(),
+                style: TextStyle(fontSize: 8, color: color),
                 maxLines: 1,
               ),
             ],
