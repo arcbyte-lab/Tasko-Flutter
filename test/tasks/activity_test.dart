@@ -110,6 +110,13 @@ void main() {
       );
     });
 
+    test('archiving reads as a sentence', () {
+      expect(
+        say(entry('task.archived', {}), inWeb),
+        startsWith('Ana archived'),
+      );
+    });
+
     test('member rows name the project outside its own log', () {
       final removed = entry(
         'member.removed',
@@ -136,7 +143,7 @@ void main() {
     test(
       'an unknown action, or changes of the wrong shape, read as the action',
       () {
-        expect(say(entry('task.archived', {}), inWeb), 'Ana: task.archived');
+        expect(say(entry('task.cloned', {}), inWeb), 'Ana: task.cloned');
         expect(
           say(entry('task.renamed', {'name': 'x'}), inWeb),
           'Ana: task.renamed',

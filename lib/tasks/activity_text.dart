@@ -49,6 +49,7 @@ String sentence(ActivityEntry e, ActivityScope scope, DateTime now) {
       'task.sent_to_review' => '$who sent $it to review',
       'task.reopened' => '$who reopened $it',
       'task.approved' => '$who approved $it',
+      'task.archived' => '$who archived $it',
       'task.rejected' =>
         '$who rejected $it${c['reason'] == null ? '' : ': ${c['reason']}'}',
       'comment.added' => '$who commented$on: ${c['body']}',
