@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../home_cubit.dart';
 import '../models.dart';
 import '../task_rules.dart';
 import '../widgets/pulse_panel.dart';
+import '../widgets/rails.dart';
 import '../widgets/tab_pages.dart';
 import '../widgets/tab_strip.dart';
 import '../widgets/task_row.dart';
@@ -124,7 +126,7 @@ class HomeView extends StatelessWidget {
           ),
           if (page.showCompleted) ...completed.map(row),
         ],
-        const SizedBox(height: 88), // room to scroll past the FAB
+        const SizedBox(height: 100), // room to scroll past the rails
       ],
     );
   }
@@ -149,6 +151,8 @@ class HomeView extends StatelessWidget {
 
     return Scaffold(
       body: SafeArea(
+        top: false,
+        bottom: false,
         // A vertical drag on the tab bar or the calendar's handle folds the
         // calendar between month and week strip (arcbyte decision 0016).
         child: CalendarFold(
@@ -210,7 +214,6 @@ class HomeView extends StatelessWidget {
                             active: state.activeTab,
                             position: position,
                             onSelect: onSelectTab,
-                            onNewProject: onNewProject,
                           ),
                         ),
                         toolbar,
@@ -224,22 +227,16 @@ class HomeView extends StatelessWidget {
         ),
       ),
       // Hidden while searching, as in the mockup.
-      floatingActionButton: state.searching
+      extendBody: true,
+      bottomNavigationBar: state.searching || state.calendarExpanded
           ? null
-          : FloatingActionButton(
-              onPressed: onCreate,
-              tooltip: 'Create task',
-              shape: const CircleBorder(),
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              elevation: 1,
-              child: const Icon(Icons.add),
-            ),
+          : Rails(onNewTask: onCreate, onNewProject: onNewProject),
     );
   }
 }
 
-// ponytail: the slider icon is left out; what it does is still open.
+/// "HOME" on black with the Log, bell and avatar in one outlined pill, as in
+/// the pen file (2026-11-10). The black runs under the status bar.
 class _TopBar extends StatelessWidget {
   const _TopBar({
     required this.user,
@@ -257,61 +254,127 @@ class _TopBar extends StatelessWidget {
   final VoidCallback onAccountSettings;
   final VoidCallback onLogOut;
 
+  static const _pill = Color(0xFF262626);
+
+  Widget _button(Widget child, {VoidCallback? onTap, String? tooltip}) {
+    Widget w = Container(
+      width: 36,
+      height: 28,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: _pill,
+        borderRadius: BorderRadius.circular(100),
+      ),
+      child: child,
+    );
+    if (onTap != null) {
+      w = InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(100),
+        child: w,
+      );
+    }
+    return tooltip == null ? w : Tooltip(message: tooltip, child: w);
+  }
+
   @override
-  Widget build(BuildContext context) => Container(
-    height: 56,
-    padding: const EdgeInsets.only(left: 16, right: 12),
-    decoration: const BoxDecoration(
-      border: Border(bottom: BorderSide(color: AppColors.border)),
-    ),
-    child: Row(
-      children: [
-        Expanded(
-          child: Text(
-            'welcome, ${user.name}',
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-              color: AppColors.foreground,
-            ),
-          ),
-        ),
-        IconButton(
-          onPressed: onNotifications,
-          tooltip: unread ? 'Notifications, unread' : 'Notifications',
-          icon: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              const Icon(
-                Icons.notifications_none,
-                size: 20,
-                color: AppColors.mutedForeground,
+  Widget build(BuildContext context) => AnnotatedRegion<SystemUiOverlayStyle>(
+    value: SystemUiOverlayStyle.light,
+    child: Container(
+      color: Colors.black,
+      padding: EdgeInsets.fromLTRB(
+        16,
+        MediaQuery.viewPaddingOf(context).top,
+        16,
+        0,
+      ),
+      child: SizedBox(
+        height: 61,
+        child: Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'HOME',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: -1,
+                  color: Colors.white,
+                ),
               ),
-              if (unread)
-                // 6px red dot with a 1.5px white ring (hifi H1).
-                Positioned(
-                  right: 0,
-                  top: 0,
-                  child: Container(
-                    width: 9,
-                    height: 9,
-                    decoration: BoxDecoration(
-                      color: AppColors.destructive,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 1.5),
+            ),
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                border: Border.all(color: _pill),
+                borderRadius: BorderRadius.circular(100),
+              ),
+              child: Row(
+                spacing: 4,
+                children: [
+                  if (onMyActivity != null)
+                    _button(
+                      const RotatedBox(
+                        quarterTurns: 1,
+                        child: Icon(
+                          Icons.commit,
+                          size: 20,
+                          color: Colors.white,
+                        ),
+                      ),
+                      onTap: onMyActivity,
+                      tooltip: 'My activity',
+                    ),
+                  _button(
+                    SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          const Icon(
+                            Icons.notifications_none,
+                            size: 20,
+                            color: Colors.white,
+                          ),
+                          if (unread)
+                            // 6px red dot with a 1.5px white ring (hifi H1).
+                            Positioned(
+                              left: 13,
+                              top: 0,
+                              child: Container(
+                                width: 9,
+                                height: 9,
+                                decoration: BoxDecoration(
+                                  color: AppColors.destructive,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 1.5,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    onTap: onNotifications,
+                    tooltip: unread ? 'Notifications, unread' : 'Notifications',
+                  ),
+                  _button(
+                    _AccountMenu(
+                      user: user,
+                      onMyActivity: onMyActivity,
+                      onAccountSettings: onAccountSettings,
+                      onLogOut: onLogOut,
                     ),
                   ),
-                ),
-            ],
-          ),
+                ],
+              ),
+            ),
+          ],
         ),
-        _AccountMenu(
-          user: user,
-          onMyActivity: onMyActivity,
-          onAccountSettings: onAccountSettings,
-          onLogOut: onLogOut,
-        ),
-      ],
+      ),
     ),
   );
 }
@@ -399,7 +462,7 @@ class _AccountMenu extends StatelessWidget {
         ),
       ],
       child: CircleAvatar(
-        radius: 12,
+        radius: 10,
         backgroundColor: AppColors.primary,
         child: Text(
           user.name.isEmpty ? '?' : user.name[0].toUpperCase(),

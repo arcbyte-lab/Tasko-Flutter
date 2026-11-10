@@ -15,7 +15,7 @@ void main() {
   late HomeCubit cubit;
 
   Future<void> pump(WidgetTester tester, {String tab = 'tasko-web'}) async {
-    tester.view.physicalSize = const Size(393 * 3, 852 * 3);
+    tester.view.physicalSize = const Size(393 * 3, 1000 * 3);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
     final api = FakeTasksApi(today: now);
@@ -72,7 +72,7 @@ void main() {
     tester,
   ) async {
     await pump(tester);
-    expect(find.text('welcome, Mira'), findsOneWidget);
+    expect(find.text('HOME').first, findsOneWidget);
     expect(find.text('October'), findsOneWidget);
     expect(find.text('WORKSPACES'), findsOneWidget);
     expect(find.text('PROJECTS'), findsOneWidget);

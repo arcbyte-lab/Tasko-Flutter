@@ -234,7 +234,7 @@ void main() {
   ) async {
     await home(tester);
     await tab(tester, 'tech');
-    await tester.tap(find.byTooltip('Create task'));
+    await tester.tap(find.byTooltip('New task'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, 'Backup check');
     await tester.tap(find.text('repeat'));

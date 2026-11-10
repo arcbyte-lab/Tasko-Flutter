@@ -148,7 +148,7 @@ void main() {
 
     await step('Mira logs in and sees my tasks, then her eight tabs', () async {
       await logIn('mira@arcbyte.dev');
-      await waitFor(find.text('welcome, Mira'));
+      await waitFor(find.text('HOME'));
       for (final t in [
         'my tasks',
         'private',
@@ -283,7 +283,7 @@ void main() {
 
     await step('create a personal task', () async {
       await openTab('private');
-      await tester.tap(find.byTooltip('Create task'));
+      await tester.tap(find.byTooltip('New task'));
       await settle();
       await tester.enterText(find.byType(TextField).first, 'Device test task');
       await tester.pump();
@@ -388,7 +388,7 @@ void main() {
     // a plain member there.
     await step('a division lead sets up a repeat', () async {
       await logIn('ana@arcbyte.dev');
-      await waitFor(find.text('welcome, Ana'));
+      await waitFor(find.text('HOME'));
       await openTask('tech', 'Renew SSL certificate');
       await tester.tap(find.text('repeat'));
       // A new rule: the screen has no "stop repeating" yet.
@@ -429,7 +429,7 @@ void main() {
 
     await step('a member sees no repeat icon and a read-only rule', () async {
       await logIn('mira@arcbyte.dev');
-      await waitFor(find.text('welcome, Mira'));
+      await waitFor(find.text('HOME'));
       await openTab('tech');
       expect(find.byTooltip('Repeating'), findsNothing);
       await openTask('tech', 'Renew SSL certificate');
@@ -452,7 +452,7 @@ void main() {
 
     await step('a lead opens the division log, then a task from it', () async {
       await logIn('ana@arcbyte.dev');
-      await waitFor(find.text('welcome, Ana'));
+      await waitFor(find.text('HOME'));
       await openTab('tech');
       final icon = find.byTooltip('Activity').hitTestable();
       await waitFor(icon);
@@ -491,7 +491,7 @@ void main() {
       await home();
       await logOut();
       await logIn('mira@arcbyte.dev');
-      await waitFor(find.text('welcome, Mira'));
+      await waitFor(find.text('HOME'));
       await openTab('tech');
       expect(find.byTooltip('Activity'), findsNothing);
       await logOut();
