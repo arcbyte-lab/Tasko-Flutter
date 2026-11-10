@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../models.dart';
 import '../task_rules.dart';
 import 'pickers.dart';
 
@@ -23,6 +24,87 @@ Future<String?> showRejectSheet(BuildContext context) =>
 /// to it, or null when dismissed.
 Future<String?> showProofSheet(BuildContext context) =>
     showPicker<String>(context, const _ProofSheet());
+
+/// "Submitted proofs": every proof of the task, newest first, the top one
+/// tagged Latest (hifi H13).
+Future<void> showProofListSheet(
+  BuildContext context,
+  List<Proof> proofs,
+  DateTime today,
+) => showPicker<void>(context, _ProofList(proofs, today));
+
+class _ProofList extends StatelessWidget {
+  const _ProofList(this.proofs, this.today);
+
+  final List<Proof> proofs;
+  final DateTime today;
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Submitted proofs',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 12),
+          Flexible(
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                for (var i = 0; i < proofs.length; i++)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                proofs[i].url,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 15),
+                              ),
+                            ),
+                            if (i == 0)
+                              const Padding(
+                                padding: EdgeInsets.only(left: 8),
+                                child: Text(
+                                  'Latest',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppColors.accentForeground,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        Text(
+                          '${proofs[i].author.name} · '
+                          '${shortDate(proofs[i].createdAt, today)}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.mutedForeground,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
 
 class _ExtensionSheet extends StatefulWidget {
   const _ExtensionSheet({required this.currentDue, required this.today});

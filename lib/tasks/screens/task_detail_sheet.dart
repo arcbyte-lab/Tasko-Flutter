@@ -130,6 +130,8 @@ class _TaskDetailPanel extends StatelessWidget {
             if (context.mounted) showToast(context, 'extension requested');
           },
           onArchive: () => showToast(context, 'action: archive task'),
+          onProofList: () =>
+              showProofListSheet(context, state.detail!.proofs, today),
           onActivity: () => openActivity(
             context,
             api: api,
@@ -167,6 +169,7 @@ class TaskDetailView extends StatelessWidget {
     required this.onRequestExtension,
     required this.onArchive,
     this.onActivity,
+    required this.onProofList,
   });
 
   final TaskDetailState state;
@@ -191,6 +194,9 @@ class TaskDetailView extends StatelessWidget {
   final VoidCallback onReject;
   final VoidCallback onRequestExtension;
   final VoidCallback onArchive;
+
+  /// Opens the list of every submitted proof.
+  final VoidCallback onProofList;
 
   /// Opens the task's log; shown only when the server sets `canViewLog`.
   final VoidCallback? onActivity;
@@ -350,6 +356,9 @@ class TaskDetailView extends StatelessWidget {
         children: [
           _QuickActions(
             onActivity: detail?.canViewLog ?? false ? onActivity : null,
+            onProofList: detail != null && detail.proofs.isNotEmpty
+                ? onProofList
+                : null,
             onRequestExtension: detail?.canRequestExtension ?? false
                 ? onRequestExtension
                 : null,
@@ -538,11 +547,13 @@ class _DetailTabsState extends State<_DetailTabs> {
 class _QuickActions extends StatelessWidget {
   const _QuickActions({
     this.onActivity,
+    this.onProofList,
     this.onRequestExtension,
     this.onArchive,
   });
 
   final VoidCallback? onActivity;
+  final VoidCallback? onProofList;
   final VoidCallback? onRequestExtension;
   final VoidCallback? onArchive;
 
@@ -570,10 +581,14 @@ class _QuickActions extends StatelessWidget {
 
     final buttons = [
       button(Icons.history, 'History', onActivity),
+      button(Icons.upload_file_outlined, 'Submitted proofs', onProofList),
       button(Icons.update, 'Request extension', onRequestExtension),
       button(Icons.delete_outline, 'Archive task', onArchive),
     ];
-    if (onActivity == null && onRequestExtension == null && onArchive == null) {
+    if (onActivity == null &&
+        onProofList == null &&
+        onRequestExtension == null &&
+        onArchive == null) {
       return const SizedBox.shrink();
     }
     return Padding(

@@ -269,6 +269,7 @@ class TaskDetail {
     this.comments = const [],
     this.assignee,
     this.proof,
+    this.proofs = const [],
     this.canReview = false,
     this.canArchive = false,
     this.canRequestExtension = false,
@@ -284,6 +285,9 @@ class TaskDetail {
 
   /// The latest proof; an earlier one stays on the server after a rejection.
   final Proof? proof;
+
+  /// Every proof, newest first (the first is [proof]).
+  final List<Proof> proofs;
 
   /// The viewer is the project's person-in-charge or author, or the
   /// division's admin or supervisor.
