@@ -34,7 +34,6 @@ Future<void> showTaskDetailSheet(
       child: _TaskDetailPanel(api: api, today: today),
     ),
   );
-  await cubit.flush();
   await cubit.close();
 }
 
@@ -57,20 +56,25 @@ class _TaskDetailPanel extends StatelessWidget {
           today: today,
           onEditName: cubit.editName,
           onEditNote: cubit.editNote,
-          onCommit: cubit.flush,
+          onEdit: cubit.startEdit,
+          onSave: cubit.save,
+          onCancelEdit: cubit.cancelEdit,
           onPriority: () async {
             final v = await showPicker<Priority>(
               context,
-              PriorityPicker(initial: task.priority),
+              PriorityPicker(initial: (state.draft ?? task).priority),
             );
-            if (v != null) await cubit.setPriority(v);
+            if (v != null) cubit.setPriority(v);
           },
           onDueDate: () async {
             final v = await showPicker<DateTime>(
               context,
-              DueDatePicker(initial: task.dueDate, today: today),
+              DueDatePicker(
+                initial: (state.draft ?? task).dueDate,
+                today: today,
+              ),
             );
-            if (v != null) await cubit.setDueDate(v);
+            if (v != null) cubit.setDueDate(v);
           },
           onRepeat: () async {
             final due = task.dueDate;
@@ -90,11 +94,11 @@ class _TaskDetailPanel extends StatelessWidget {
               AssigneePicker(
                 members: members,
                 initial: members
-                    .where((m) => m.user.id == task.assigneeId)
+                    .where((m) => m.user.id == (state.draft ?? task).assigneeId)
                     .firstOrNull,
               ),
             );
-            if (v != null) await cubit.setAssignee(v);
+            if (v != null) cubit.setAssignee(v);
           },
           onProof: () => showToast(context, 'action: choose proof type'),
           onTickSubtask: (sub) async {
@@ -152,7 +156,9 @@ class TaskDetailView extends StatelessWidget {
     required this.today,
     required this.onEditName,
     required this.onEditNote,
-    required this.onCommit,
+    required this.onEdit,
+    required this.onSave,
+    required this.onCancelEdit,
     required this.onPriority,
     required this.onDueDate,
     required this.onRepeat,
@@ -177,8 +183,10 @@ class TaskDetailView extends StatelessWidget {
   final ValueChanged<String> onEditName;
   final ValueChanged<String> onEditNote;
 
-  /// Saves the title and note drafts; called on blur.
-  final VoidCallback onCommit;
+  /// Pencil, Save and Cancel: edit mode (hifi H13, decision 0018).
+  final VoidCallback onEdit;
+  final VoidCallback onSave;
+  final VoidCallback onCancelEdit;
   final VoidCallback onPriority;
   final VoidCallback onDueDate;
   final VoidCallback onRepeat;
@@ -203,9 +211,12 @@ class TaskDetailView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final task = state.task;
+    final editing = state.editing;
+    final task = state.draft ?? state.task;
     final detail = state.detail;
     final team = !task.personal;
+    // Assignees ask for an extension instead of editing the due date.
+    final canEditDue = !(detail?.canRequestExtension ?? false);
     final media = MediaQuery.of(context);
     final action = state.action;
 
@@ -239,7 +250,7 @@ class TaskDetailView extends StatelessWidget {
             hint: 'title',
             keepIfBlank: true,
             onChanged: onEditName,
-            onBlur: onCommit,
+            editing: editing,
             style: const TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w600,
@@ -252,7 +263,7 @@ class TaskDetailView extends StatelessWidget {
             text: task.description ?? '',
             hint: 'add note',
             onChanged: onEditNote,
-            onBlur: onCommit,
+            editing: editing,
             style: const TextStyle(
               fontSize: 15,
               color: AppColors.mutedForeground,
@@ -270,7 +281,8 @@ class TaskDetailView extends StatelessWidget {
               _PropRow(
                 icon: Icons.flag_outlined,
                 label: 'priority',
-                onTap: onPriority,
+                onTap: editing ? onPriority : null,
+                boxed: editing,
                 value: Text(
                   task.priority.name,
                   style: TextStyle(
@@ -284,7 +296,8 @@ class TaskDetailView extends StatelessWidget {
               _PropRow(
                 icon: Icons.calendar_today_outlined,
                 label: 'due',
-                onTap: onDueDate,
+                onTap: editing && canEditDue ? onDueDate : null,
+                boxed: editing && canEditDue,
                 value: _dueText(task),
               ),
               // Only a workspace's own top-level tasks repeat (arcbyte decision 0009).
@@ -310,8 +323,11 @@ class TaskDetailView extends StatelessWidget {
                 _PropRow(
                   icon: Icons.person_outline,
                   label: 'assignee',
-                  onTap: onAssignee,
-                  value: _assignee(detail?.assignee),
+                  onTap: editing ? onAssignee : null,
+                  boxed: editing,
+                  value: _assignee(
+                    editing ? state.draftAssignee : detail?.assignee,
+                  ),
                 ),
                 _PropRow(
                   icon: Icons.attach_file,
@@ -363,9 +379,25 @@ class TaskDetailView extends StatelessWidget {
                 ? onRequestExtension
                 : null,
             onArchive: detail?.canArchive ?? false ? onArchive : null,
+            editing: editing,
+            onEdit:
+                detail != null &&
+                    (!team ||
+                        task.assigneeId == state.me?.id ||
+                        state.task.creatorId == state.me?.id ||
+                        detail.canViewLog)
+                ? onEdit
+                : null,
           ),
           Flexible(child: panel),
-          if (action != DetailAction.none && media.viewInsets.bottom == 0) ...[
+          if (editing) ...[
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 28),
+              child: _EditBar(onSave: onSave, onCancel: onCancelEdit),
+            ),
+          ] else if (action != DetailAction.none &&
+              media.viewInsets.bottom == 0) ...[
             const SizedBox(height: 12),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -549,9 +581,15 @@ class _QuickActions extends StatelessWidget {
     this.onActivity,
     this.onProofList,
     this.onRequestExtension,
+    this.onEdit,
+    this.editing = false,
     this.onArchive,
   });
 
+  final VoidCallback? onEdit;
+
+  /// The pencil is active (blue) while edit mode is on.
+  final bool editing;
   final VoidCallback? onActivity;
   final VoidCallback? onProofList;
   final VoidCallback? onRequestExtension;
@@ -559,7 +597,12 @@ class _QuickActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget button(IconData icon, String tooltip, VoidCallback? onTap) {
+    Widget button(
+      IconData icon,
+      String tooltip,
+      VoidCallback? onTap, {
+      bool active = false,
+    }) {
       if (onTap == null) return const SizedBox.shrink();
       return Tooltip(
         message: tooltip,
@@ -569,11 +612,15 @@ class _QuickActions extends StatelessWidget {
           child: Container(
             width: 45,
             height: 45,
-            decoration: const BoxDecoration(
-              color: Color(0xFFF7F9FA),
+            decoration: BoxDecoration(
+              color: active ? const Color(0xFF2563EB) : const Color(0xFFF7F9FA),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, size: 20, color: AppColors.mutedForeground),
+            child: Icon(
+              icon,
+              size: 20,
+              color: active ? Colors.white : AppColors.mutedForeground,
+            ),
           ),
         ),
       );
@@ -583,10 +630,12 @@ class _QuickActions extends StatelessWidget {
       button(Icons.history, 'History', onActivity),
       button(Icons.upload_file_outlined, 'Submitted proofs', onProofList),
       button(Icons.update, 'Request extension', onRequestExtension),
+      button(Icons.edit_outlined, 'Edit', onEdit, active: editing),
       button(Icons.delete_outline, 'Archive task', onArchive),
     ];
     if (onActivity == null &&
         onProofList == null &&
+        onEdit == null &&
         onRequestExtension == null &&
         onArchive == null) {
       return const SizedBox.shrink();
@@ -609,7 +658,7 @@ class _EditableText extends StatefulWidget {
     required this.hint,
     required this.style,
     required this.onChanged,
-    required this.onBlur,
+    required this.editing,
     this.keepIfBlank = false,
   });
 
@@ -617,7 +666,9 @@ class _EditableText extends StatefulWidget {
   final String hint;
   final TextStyle style;
   final ValueChanged<String> onChanged;
-  final VoidCallback onBlur;
+
+  /// Edit mode: a field box you can type in. Otherwise plain text.
+  final bool editing;
 
   /// The title can't be blank: clearing it puts the old text back.
   final bool keepIfBlank;
@@ -638,14 +689,16 @@ class _EditableTextState extends State<_EditableText> {
       if (widget.keepIfBlank && _controller.text.trim().isEmpty) {
         _controller.text = widget.text;
       }
-      widget.onBlur();
     });
   }
 
   @override
   void didUpdateWidget(_EditableText old) {
     super.didUpdateWidget(old);
-    if (!_focus.hasFocus && widget.text != _controller.text) {
+    // Leaving edit mode (save or cancel) shows the task's own text again.
+    if (old.editing && !widget.editing) _focus.unfocus();
+    if ((!_focus.hasFocus || !widget.editing) &&
+        widget.text != _controller.text) {
       _controller.text = widget.text;
     }
   }
@@ -663,14 +716,33 @@ class _EditableTextState extends State<_EditableText> {
     focusNode: _focus,
     onChanged: widget.onChanged,
     maxLines: null,
+    readOnly: !widget.editing,
     keyboardType: TextInputType.text,
     textInputAction: TextInputAction.done,
     onSubmitted: (_) => _focus.unfocus(),
     style: widget.style,
-    decoration: InputDecoration.collapsed(
-      hintText: widget.hint,
-      hintStyle: widget.style.copyWith(color: AppColors.placeholder),
-    ),
+    decoration: widget.editing
+        ? InputDecoration(
+            hintText: widget.hint,
+            hintStyle: widget.style.copyWith(color: AppColors.placeholder),
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 10,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(6),
+              borderSide: const BorderSide(color: AppColors.border),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(6),
+              borderSide: const BorderSide(color: AppColors.border),
+            ),
+          )
+        : InputDecoration.collapsed(
+            hintText: widget.hint,
+            hintStyle: widget.style.copyWith(color: AppColors.placeholder),
+          ),
   );
 }
 
@@ -680,12 +752,16 @@ class _PropRow extends StatelessWidget {
     required this.label,
     required this.value,
     this.onTap,
+    this.boxed = false,
   });
 
   final IconData icon;
   final String label;
   final Widget value;
   final VoidCallback? onTap;
+
+  /// Edit mode: the value sits in a field box.
+  final bool boxed;
 
   @override
   Widget build(BuildContext context) => InkWell(
@@ -714,7 +790,19 @@ class _PropRow extends StatelessWidget {
               child: DefaultTextStyle.merge(
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                child: value,
+                child: boxed
+                    ? Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: AppColors.border),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: value,
+                      )
+                    : value,
               ),
             ),
           ),
@@ -949,6 +1037,50 @@ class _DiscussionState extends State<_Discussion> {
 }
 
 /// The floating bar under the panel (arcbyte lofi ticket T9, hifi H4).
+/// Cancel and Save while edit mode is on (decision 0018).
+class _EditBar extends StatelessWidget {
+  const _EditBar({required this.onSave, required this.onCancel});
+
+  final VoidCallback onSave;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(4),
+    decoration: BoxDecoration(
+      color: AppColors.background,
+      borderRadius: BorderRadius.circular(100),
+      border: Border.all(color: AppColors.border),
+    ),
+    child: Row(
+      spacing: 8,
+      children: [
+        Expanded(
+          child: OutlinedButton(
+            onPressed: onCancel,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(36),
+              shape: const StadiumBorder(),
+              side: const BorderSide(color: AppColors.border),
+            ),
+            child: const Text('cancel'),
+          ),
+        ),
+        Expanded(
+          child: FilledButton(
+            onPressed: onSave,
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(36),
+              shape: const StadiumBorder(),
+            ),
+            child: const Text('save'),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
 class _ActionBar extends StatelessWidget {
   const _ActionBar({
     required this.action,

@@ -210,12 +210,43 @@ void main() {
     expect(find.text('approve'), findsNothing); // back in progress
   });
 
-  testWidgets('renaming saves when the sheet closes', (tester) async {
+  testWidgets('edit mode: the title is read-only until the pencil', (
+    tester,
+  ) async {
     await open(tester, 'tasko-web', 'Deploy staging');
-    await tester.enterText(find.byType(TextField).first, 'Deploy prod');
-    await tester.tapAt(const Offset(200, 20)); // the scrim
+    expect(
+      tester.widget<TextField>(find.byType(TextField).first).readOnly,
+      isTrue,
+    );
+    await tester.tap(find.byTooltip('Edit'));
     await tester.pumpAndSettle();
+    expect(
+      tester.widget<TextField>(find.byType(TextField).first).readOnly,
+      isFalse,
+    );
+    expect(button('save'), findsOneWidget);
+  });
+
+  testWidgets('edit mode: save sends the new title', (tester) async {
+    await open(tester, 'tasko-web', 'Deploy staging');
+    await tester.tap(find.byTooltip('Edit'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Deploy prod');
+    await tester.tap(button('save'));
+    await tester.pumpAndSettle();
+    expect(button('save'), findsNothing);
     expect(find.text('Deploy prod'), findsOneWidget);
+  });
+
+  testWidgets('edit mode: cancel drops the change', (tester) async {
+    await open(tester, 'tasko-web', 'Deploy staging');
+    await tester.tap(find.byTooltip('Edit'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Deploy prod');
+    await tester.tap(button('cancel'));
+    await tester.pumpAndSettle();
+    expect(find.text('Deploy prod'), findsNothing);
+    expect(find.text('Deploy staging'), findsWidgets);
   });
 
   testWidgets('a member asks for an extension from the quick actions', (
