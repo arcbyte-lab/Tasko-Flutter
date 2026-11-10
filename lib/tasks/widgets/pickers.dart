@@ -41,11 +41,7 @@ class PickerFrame extends StatelessWidget {
       borderRadius: BorderRadius.circular(6),
     );
     // Inter again: a button's textStyle replaces the theme's, family included.
-    const text = TextStyle(
-      fontFamily: 'Inter',
-      fontSize: 15,
-      fontWeight: FontWeight.w500,
-    );
+    const text = TextStyle(fontSize: 15, fontWeight: FontWeight.w500);
     return SafeArea(
       child: Padding(
         padding: EdgeInsets.fromLTRB(

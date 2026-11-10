@@ -152,7 +152,6 @@ class _Tab extends StatelessWidget {
           tab.name,
           // Monospace, like the group labels above (owner, 2026-10-29).
           style: TextStyle(
-            fontFamily: fontMono,
             fontSize: 13,
             fontWeight: FontWeight.w500,
             color: active

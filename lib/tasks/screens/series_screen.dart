@@ -271,7 +271,6 @@ class SeriesView extends StatelessWidget {
           const Text(
             'OCCURRENCES',
             style: TextStyle(
-              fontFamily: 'JetBrains Mono',
               fontSize: 12,
               fontWeight: FontWeight.w500,
               letterSpacing: 0.5,
@@ -342,7 +341,6 @@ class _OccurrenceRow extends StatelessWidget {
                         Text(
                           t.code!,
                           style: const TextStyle(
-                            fontFamily: 'JetBrains Mono',
                             fontSize: 12,
                             color: AppColors.mutedForeground,
                           ),

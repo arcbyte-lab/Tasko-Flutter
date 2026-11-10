@@ -88,7 +88,7 @@ class NotificationsView extends StatelessWidget {
           TextButton(
             onPressed: fresh.isEmpty ? null : onMarkAllRead,
             style: TextButton.styleFrom(
-              textStyle: const TextStyle(fontFamily: 'Inter', fontSize: 15),
+              textStyle: const TextStyle(fontSize: 15),
             ),
             child: const Text('mark all read'),
           ),

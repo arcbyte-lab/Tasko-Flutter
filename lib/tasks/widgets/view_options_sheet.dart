@@ -138,10 +138,7 @@ class _ViewOptionsSheetState extends State<_ViewOptionsSheet> {
                 TextButton(
                   onPressed: () => _set(ViewOptions.defaults),
                   style: TextButton.styleFrom(
-                    textStyle: const TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 15,
-                    ),
+                    textStyle: const TextStyle(fontSize: 15),
                   ),
                   child: const Text('reset'),
                 ),
@@ -154,7 +151,6 @@ class _ViewOptionsSheetState extends State<_ViewOptionsSheet> {
                       borderRadius: BorderRadius.circular(6),
                     ),
                     textStyle: const TextStyle(
-                      fontFamily: 'Inter',
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
                     ),

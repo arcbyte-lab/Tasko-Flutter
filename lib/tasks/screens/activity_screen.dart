@@ -254,7 +254,6 @@ class _EntryRow extends StatelessWidget {
                     where == null || where!.isEmpty ? time : '$time · $where',
                     // Times in mono, as on the repeat screen (hifi H9).
                     style: const TextStyle(
-                      fontFamily: fontMono,
                       fontSize: 12,
                       color: AppColors.mutedForeground,
                     ),

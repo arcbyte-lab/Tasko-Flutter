@@ -125,7 +125,7 @@ class MembersView extends StatelessWidget {
             TextButton(
               onPressed: onAdd,
               style: TextButton.styleFrom(
-                textStyle: const TextStyle(fontFamily: 'Inter', fontSize: 15),
+                textStyle: const TextStyle(fontSize: 15),
               ),
               child: const Text('add member'),
             ),

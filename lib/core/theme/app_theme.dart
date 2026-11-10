@@ -20,12 +20,12 @@ abstract final class AppColors {
   static const placeholder = Color(0xFF9CA3AF);
 }
 
-const fontMono = 'JetBrainsMono';
+/// Space Grotesk for all text (owner, 2026-11-10), the font of the pen file.
+const fontFamily = 'SpaceGrotesk';
 
 /// Group labels: "WORKSPACES", "OVERDUE", "MONTHLY".
 TextStyle groupLabelStyle({Color color = AppColors.mutedForeground}) =>
     TextStyle(
-      fontFamily: fontMono,
       fontSize: 12,
       fontWeight: FontWeight.w500,
       letterSpacing: 0.5,
@@ -34,7 +34,7 @@ TextStyle groupLabelStyle({Color color = AppColors.mutedForeground}) =>
 
 final ThemeData appTheme = ThemeData(
   useMaterial3: true,
-  fontFamily: 'Inter',
+  fontFamily: fontFamily,
   scaffoldBackgroundColor: AppColors.background,
   colorScheme: const ColorScheme.light(
     primary: AppColors.primary,
@@ -64,7 +64,7 @@ final ThemeData appTheme = ThemeData(
   snackBarTheme: SnackBarThemeData(
     backgroundColor: AppColors.foreground,
     contentTextStyle: const TextStyle(
-      fontFamily: 'Inter',
+      fontFamily: fontFamily,
       fontSize: 15,
       color: Colors.white,
     ),

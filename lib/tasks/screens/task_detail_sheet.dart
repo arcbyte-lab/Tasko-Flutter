@@ -498,7 +498,7 @@ class _Header extends StatelessWidget {
           Text(tabName, style: muted.copyWith(fontWeight: FontWeight.w500)),
           if (code != null) ...[
             const SizedBox(width: 6),
-            Text(code!, style: muted.copyWith(fontFamily: fontMono)),
+            Text(code!, style: muted),
           ],
         ],
       ),
@@ -952,7 +952,7 @@ class _SubtasksState extends State<_Subtasks> {
             onPressed: () => setState(() => _adding = true),
             style: TextButton.styleFrom(
               padding: EdgeInsets.zero,
-              textStyle: const TextStyle(fontFamily: 'Inter', fontSize: 15),
+              textStyle: const TextStyle(fontSize: 15),
             ),
             icon: const Icon(Icons.add, size: 18),
             label: const Text('add sub-task'),
@@ -1144,11 +1144,7 @@ class _ActionBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const shape = StadiumBorder();
-    const text = TextStyle(
-      fontFamily: 'Inter',
-      fontSize: 15,
-      fontWeight: FontWeight.w500,
-    );
+    const text = TextStyle(fontSize: 15, fontWeight: FontWeight.w500);
     Widget primary(String label, VoidCallback? onTap, {IconData? icon}) =>
         FilledButton.icon(
           onPressed: onTap,

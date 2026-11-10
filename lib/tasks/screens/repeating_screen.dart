@@ -89,9 +89,7 @@ class RepeatingView extends StatelessWidget {
       actions: [
         TextButton(
           onPressed: onNew,
-          style: TextButton.styleFrom(
-            textStyle: const TextStyle(fontFamily: 'Inter', fontSize: 15),
-          ),
+          style: TextButton.styleFrom(textStyle: const TextStyle(fontSize: 15)),
           child: const Text('+ new'),
         ),
         const SizedBox(width: 8),

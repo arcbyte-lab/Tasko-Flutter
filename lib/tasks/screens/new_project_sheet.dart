@@ -140,7 +140,6 @@ class _NewProjectFormState extends State<NewProjectForm> {
                   borderRadius: BorderRadius.circular(6),
                 ),
                 textStyle: const TextStyle(
-                  fontFamily: 'Inter',
                   fontSize: 15,
                   fontWeight: FontWeight.w500,
                 ),

@@ -91,7 +91,7 @@ class _RepeatScreenState extends State<RepeatScreen> {
           TextButton(
             onPressed: () => Navigator.pop(context, (_value,)),
             style: TextButton.styleFrom(
-              textStyle: const TextStyle(fontFamily: 'Inter', fontSize: 15),
+              textStyle: const TextStyle(fontSize: 15),
             ),
             child: const Text('done'),
           ),
@@ -114,7 +114,6 @@ class _RepeatScreenState extends State<RepeatScreen> {
                   value: _unit,
                   underline: const SizedBox.shrink(),
                   style: const TextStyle(
-                    fontFamily: 'Inter',
                     fontSize: 15,
                     color: AppColors.foreground,
                   ),
@@ -182,7 +181,7 @@ class _RepeatScreenState extends State<RepeatScreen> {
                 onPressed: () => Navigator.pop(context, (null,)),
                 style: TextButton.styleFrom(
                   foregroundColor: AppColors.destructive,
-                  textStyle: const TextStyle(fontFamily: 'Inter', fontSize: 15),
+                  textStyle: const TextStyle(fontSize: 15),
                 ),
                 child: const Text('stop repeating'),
               ),
