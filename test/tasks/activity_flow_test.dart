@@ -130,8 +130,7 @@ void main() {
     await home(tester);
     await tap(tester, find.text('tasko-web'));
     await tap(tester, find.text('Deploy staging'));
-    await tap(tester, find.byTooltip('More'));
-    await tap(tester, find.text('activity'));
+    await tap(tester, find.byTooltip('History'));
     expect(find.text('Deploy staging activity'), findsOneWidget);
     expect(
       find.text('Ana renamed Deploy to staging to Deploy staging'),
@@ -148,9 +147,8 @@ void main() {
     await tester.pumpAndSettle();
     await tap(tester, find.text('tasko-app'));
     await tap(tester, find.text('Set up CI'));
-    await tap(tester, find.byTooltip('More'));
-    expect(find.text('request due date extension'), findsOneWidget);
-    expect(find.text('activity'), findsNothing);
+    expect(find.byTooltip('Request extension'), findsOneWidget);
+    expect(find.byTooltip('History'), findsNothing);
   });
 
   group('the view', () {
