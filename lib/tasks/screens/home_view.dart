@@ -6,7 +6,7 @@ import '../../core/theme/app_theme.dart';
 import '../home_cubit.dart';
 import '../models.dart';
 import '../task_rules.dart';
-import '../widgets/pulse_panel.dart';
+import '../widgets/calendar_panel.dart';
 import '../widgets/rails.dart';
 import '../widgets/stats_strip.dart';
 import '../widgets/tab_pages.dart';
@@ -250,7 +250,7 @@ class HomeView extends StatelessWidget {
                         : MediaQuery.sizeOf(context).height * 0.55,
                   ),
                   child: _pullable(
-                    PulsePanel(
+                    CalendarPanel(
                       expanded: state.calendarExpanded,
                       onToggleExpanded: onToggleCalendar,
                       month: state.month,

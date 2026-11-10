@@ -10,8 +10,8 @@ import '../task_rules.dart';
 /// Day numbers with dots for the open tasks due. It folds between the month
 /// and a week strip by [fold]; [CalendarFold] drives that from a drag on the
 /// tab bar or the handle. Expanded, it fills the screen with task titles.
-class PulsePanel extends StatelessWidget {
-  const PulsePanel({
+class CalendarPanel extends StatelessWidget {
+  const CalendarPanel({
     super.key,
     required this.month,
     required this.week,

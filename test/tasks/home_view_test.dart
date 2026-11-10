@@ -6,7 +6,7 @@ import 'package:tasko/tasks/home_cubit.dart';
 import 'package:tasko/tasks/screens/home_panel.dart';
 import 'package:tasko/tasks/task_rules.dart';
 import 'package:tasko/tasks/tasks_api.dart';
-import 'package:tasko/tasks/widgets/pulse_panel.dart';
+import 'package:tasko/tasks/widgets/calendar_panel.dart';
 import 'package:tasko/tasks/widgets/tab_strip.dart';
 import 'package:tasko/tasks/widgets/task_row.dart';
 
@@ -127,7 +127,7 @@ void main() {
     expect(find.byTooltip('Media'), findsOneWidget);
     expect(find.byTooltip('New task'), findsOneWidget);
 
-    await tester.drag(find.byType(PulsePanel), const Offset(0, 500));
+    await tester.drag(find.byType(CalendarPanel), const Offset(0, 500));
     await tester.pumpAndSettle();
     expect(cubit.state.workspaceOpen, isTrue);
     expect(find.text('MY WORKSPACE'), findsOneWidget);
@@ -149,7 +149,7 @@ void main() {
 
   testWidgets('a short pull on the calendar springs back', (tester) async {
     await pump(tester);
-    await tester.drag(find.byType(PulsePanel), const Offset(0, 60));
+    await tester.drag(find.byType(CalendarPanel), const Offset(0, 60));
     await tester.pumpAndSettle();
     expect(cubit.state.workspaceOpen, isFalse);
     expect(find.byTooltip('New task'), findsOneWidget);
@@ -222,14 +222,16 @@ void main() {
     tester,
   ) async {
     await pump(tester);
-    final october = tester.getSize(find.byType(PulsePanel)).height; // 5 weeks
+    final october = tester
+        .getSize(find.byType(CalendarPanel))
+        .height; // 5 weeks
     cubit.changeMonth(4); // February 2027 starts on a Monday: 4 weeks
     await tester.pumpAndSettle();
     expect(find.text('February'), findsOneWidget);
-    expect(tester.getSize(find.byType(PulsePanel)).height, october);
+    expect(tester.getSize(find.byType(CalendarPanel)).height, october);
     cubit.changeMonth(-5); // May 2026 starts on a Friday: 6 weeks
     await tester.pumpAndSettle();
-    expect(tester.getSize(find.byType(PulsePanel)).height, october);
+    expect(tester.getSize(find.byType(CalendarPanel)).height, october);
   });
 
   testWidgets('full screen: rings, titles coloured by kind, today blue (H12)', (
@@ -304,7 +306,7 @@ void main() {
     tester,
   ) async {
     await pump(tester);
-    double panel() => tester.getSize(find.byType(PulsePanel)).height;
+    double panel() => tester.getSize(find.byType(CalendarPanel)).height;
     final month = panel();
 
     // Half-way up: the month is part folded, between month and week.
