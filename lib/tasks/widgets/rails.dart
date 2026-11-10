@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+import '../../core/theme/app_palette.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/toast.dart';
 
@@ -48,7 +49,9 @@ class Rails extends StatelessWidget {
         filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
         child: Container(
           height: 100,
-          color: Colors.white.withValues(alpha: 0.5),
+          // On My Workspace, the one dark screen, the dock is black, not white.
+          color: (AppPalette.of(context).isDark ? Colors.black : Colors.white)
+              .withValues(alpha: 0.5),
           padding: const EdgeInsets.fromLTRB(10, 10, 10, 0),
           alignment: Alignment.topCenter,
           child: Row(
@@ -108,25 +111,29 @@ class _Rail extends StatelessWidget {
   final List<_Item> items;
 
   @override
-  Widget build(BuildContext context) => ClipRRect(
-    borderRadius: BorderRadius.circular(26),
-    child: BackdropFilter(
-      filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-      child: Container(
-        height: 52,
-        padding: const EdgeInsets.symmetric(horizontal: 6),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.5),
-          border: Border.all(color: AppColors.border),
-          borderRadius: BorderRadius.circular(26),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [for (final i in items) Flexible(child: i)],
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(26),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: Container(
+          height: 52,
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          // Dark, as in the pen's My Workspace: white at 10%, a #27272A line.
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: p.isDark ? 0.10 : 0.5),
+            border: Border.all(color: p.border),
+            borderRadius: BorderRadius.circular(26),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [for (final i in items) Flexible(child: i)],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _Item extends StatelessWidget {
@@ -149,7 +156,9 @@ class _Item extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = active ? const Color(0xFF1E3A8A) : AppColors.mutedForeground;
+    final color = active
+        ? const Color(0xFF1E3A8A)
+        : AppPalette.of(context).muted;
     return Tooltip(
       message: label,
       child: InkWell(

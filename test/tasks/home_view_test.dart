@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tasko/core/theme/app_palette.dart';
 import 'package:tasko/core/theme/app_theme.dart';
 import 'package:tasko/tasks/home_cubit.dart';
 import 'package:tasko/tasks/screens/home_panel.dart';
@@ -129,6 +130,9 @@ void main() {
     expect(find.byTooltip('Media'), findsNothing); // navigations stay home
     expect(find.text('HOME'), findsNothing);
     expect(find.text('Pay internet bill'), findsOneWidget); // mine, any tab
+    // the actions rail is dark too: #9CA3AF labels, not the light #6B7280
+    final label = tester.widget<Text>(find.text('NEW TASK'));
+    expect(label.style?.color, AppPalette.dark.muted);
 
     // the grabber strip brings home back, on the tab it left
     await tester.tap(find.bySemanticsLabel('swipe up to back to home'));
