@@ -56,6 +56,18 @@ class HomeState {
         ]
       : tasksByTab[activeTab] ?? const [];
 
+  /// The strip's counts: over every tab, whichever is active (decision 0018).
+  Workload get workload => user == null
+      ? const Workload()
+      : countWorkload(
+          [
+            for (final MapEntry(key: tab, value: list) in tasksByTab.entries)
+              for (final t in list) (t, tab),
+          ],
+          user!.id,
+          today,
+        );
+
   /// The tab [t] lives in: the active one, except in "my tasks".
   TaskTab? tabOf(Task t) {
     for (final MapEntry(key: tab, value: list) in tasksByTab.entries) {

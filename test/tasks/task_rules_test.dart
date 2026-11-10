@@ -290,4 +290,67 @@ void main() {
     expect(canManageRepeats(tab(TabKind.project, 'owner')), isFalse);
     expect(canManageRepeats(TaskTab.private), isFalse);
   });
+
+  group('workload (the home strip)', () {
+    const me = 1;
+    const web = TaskTab(TabKind.project, 2, 'web', role: 'member');
+    final today = DateTime(2026, 10, 7);
+    Task t(
+      TaskStatus s, {
+      int id = 1,
+      DateTime? due,
+      int? assignee = me,
+      int? creator,
+      bool personal = false,
+    }) => Task(
+      id: id,
+      name: 't$id',
+      status: s,
+      dueDate: due,
+      assigneeId: assignee,
+      creatorId: creator,
+      personal: personal,
+    );
+    Workload count(List<(Task, TaskTab)> all) => countWorkload(all, me, today);
+
+    test('in progress: mine and started, personal included', () {
+      final w = count([
+        (t(TaskStatus.inProgress), web),
+        (t(TaskStatus.inProgress, id: 2, assignee: 9), web),
+        (
+          t(TaskStatus.inProgress, id: 3, assignee: null, personal: true),
+          TaskTab.private,
+        ),
+        (t(TaskStatus.waiting, id: 4), web),
+      ]);
+      expect(w.inProgress, 2);
+    });
+
+    test('to review: made by me, assigned to someone else', () {
+      final w = count([
+        (t(TaskStatus.review, assignee: 9, creator: me), web),
+        (t(TaskStatus.review, id: 2, assignee: me, creator: me), web),
+        (t(TaskStatus.review, id: 3, assignee: 9, creator: 5), web),
+      ]);
+      expect(w.toReview, 1);
+    });
+
+    test('due soon is today or tomorrow; overdue is before today', () {
+      final w = count([
+        (t(TaskStatus.waiting, due: DateTime(2026, 10, 6)), web),
+        (t(TaskStatus.waiting, id: 2, due: DateTime(2026, 10, 7, 23)), web),
+        (t(TaskStatus.waiting, id: 3, due: DateTime(2026, 10, 8)), web),
+        (t(TaskStatus.waiting, id: 4, due: DateTime(2026, 10, 9)), web),
+        (t(TaskStatus.done, id: 5, due: DateTime(2026, 10, 1)), web),
+      ]);
+      expect((w.overdue, w.dueSoon), (1, 2));
+    });
+
+    test('a task can count twice', () {
+      final w = count([
+        (t(TaskStatus.inProgress, due: DateTime(2026, 10, 1)), web),
+      ]);
+      expect((w.inProgress, w.overdue), (1, 1));
+    });
+  });
 }

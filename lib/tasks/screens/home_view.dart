@@ -7,6 +7,7 @@ import '../models.dart';
 import '../task_rules.dart';
 import '../widgets/pulse_panel.dart';
 import '../widgets/rails.dart';
+import '../widgets/stats_strip.dart';
 import '../widgets/tab_pages.dart';
 import '../widgets/tab_strip.dart';
 import '../widgets/task_row.dart';
@@ -169,6 +170,7 @@ class HomeView extends StatelessWidget {
                 onAccountSettings: onAccountSettings,
                 onLogOut: onLogOut,
               ),
+              if (!state.calendarExpanded) StatsStrip(state.workload),
               Flexible(
                 flex: state.calendarExpanded ? 1 : 0,
                 fit: state.calendarExpanded ? FlexFit.tight : FlexFit.loose,

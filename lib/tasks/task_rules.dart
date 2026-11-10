@@ -269,3 +269,58 @@ bool isMine(Task t, TaskTab tab, int meId) =>
 /// What the calendar counts in "my tasks": open tasks, and reviews, which
 /// are open for their reviewer.
 bool isOpenOrReview(Task t) => isOpen(t) || t.status == TaskStatus.review;
+
+/// The four counts on the home strip (arcbyte decision 0018, hifi H12).
+class Workload {
+  const Workload({
+    this.inProgress = 0,
+    this.toReview = 0,
+    this.dueSoon = 0,
+    this.overdue = 0,
+  });
+
+  final int inProgress;
+  final int toReview;
+  final int dueSoon;
+  final int overdue;
+}
+
+/// [all] is every task with the tab it lives in. A task can count twice, so
+/// the counts have no total.
+/// - in progress: mine (assigned to me, or personal) and started;
+/// - to review: made by me, assigned to someone else, now in review;
+/// - due soon: open, mine, due today or tomorrow (not yet overdue);
+/// - overdue: open and mine, due before [today].
+// ponytail: "due soon" is today or tomorrow by calendar day, a loose 48
+// hours; use the time of day if that proves too coarse.
+Workload countWorkload(
+  Iterable<(Task, TaskTab)> all,
+  int meId,
+  DateTime today,
+) {
+  var (inProgress, toReview, dueSoon, overdue) = (0, 0, 0, 0);
+  final soon = dateOnly(today).add(const Duration(days: 1));
+  for (final (t, tab) in all) {
+    if (t.status == TaskStatus.review &&
+        t.creatorId == meId &&
+        t.assigneeId != meId) {
+      toReview++;
+    }
+    if (!isMine(t, tab, meId) || !isOpen(t)) continue;
+    if (t.status == TaskStatus.inProgress &&
+        (t.personal || t.assigneeId == meId)) {
+      inProgress++;
+    }
+    if (isOverdue(t, today)) {
+      overdue++;
+    } else if (t.dueDate != null && !dateOnly(t.dueDate!).isAfter(soon)) {
+      dueSoon++;
+    }
+  }
+  return Workload(
+    inProgress: inProgress,
+    toReview: toReview,
+    dueSoon: dueSoon,
+    overdue: overdue,
+  );
+}

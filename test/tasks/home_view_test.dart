@@ -73,6 +73,8 @@ void main() {
   ) async {
     await pump(tester);
     expect(find.text('HOME').first, findsOneWidget);
+    expect(find.text('MY WORK'), findsOneWidget);
+    expect(find.text('DEADLINES'), findsOneWidget);
     expect(find.text('October'), findsOneWidget);
     expect(find.text('WORKSPACES'), findsOneWidget);
     expect(find.text('PROJECTS'), findsOneWidget);
@@ -143,6 +145,7 @@ void main() {
     await tester.tap(find.byTooltip('Expand calendar'));
     await tester.pumpAndSettle();
     expect(find.text('WORKSPACES'), findsNothing);
+    expect(find.text('MY WORK'), findsNothing);
     expect(find.byType(TaskRow), findsNothing);
     // Oct 14 has 4 open tasks (QA checkout flow is in review): 2 and more.
     expect(find.text('Design empty state'), findsOneWidget);
