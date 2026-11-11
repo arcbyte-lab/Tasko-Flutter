@@ -291,23 +291,35 @@ class HomeView extends StatelessWidget {
                       ),
                       child: ColoredBox(
                         color: AppColors.background,
-                        child: TabPages(
-                          tabs: tabs,
-                          active: active,
-                          onPageChanged: onSelectTab,
-                          pageBuilder: (tab) => _page(state.pageFor(tab)),
-                          header: (position) => Column(
-                            children: [
-                              handle(
-                                TabStrip(
-                                  tabs: tabs,
-                                  active: active,
-                                  position: position,
-                                  onSelect: onSelectTab,
+                        // Scrolling a list up folds the month to a week.
+                        child: NotificationListener<ScrollUpdateNotification>(
+                          onNotification: (n) {
+                            if (!state.showsWeek &&
+                                n.metrics.axis == Axis.vertical &&
+                                n.dragDetails != null &&
+                                (n.scrollDelta ?? 0) > 0) {
+                              onFoldToWeek();
+                            }
+                            return false;
+                          },
+                          child: TabPages(
+                            tabs: tabs,
+                            active: active,
+                            onPageChanged: onSelectTab,
+                            pageBuilder: (tab) => _page(state.pageFor(tab)),
+                            header: (position) => Column(
+                              children: [
+                                handle(
+                                  TabStrip(
+                                    tabs: tabs,
+                                    active: active,
+                                    position: position,
+                                    onSelect: onSelectTab,
+                                  ),
                                 ),
-                              ),
-                              toolbar,
-                            ],
+                                toolbar,
+                              ],
+                            ),
                           ),
                         ),
                       ),
